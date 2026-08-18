@@ -49,8 +49,8 @@ export async function voidProvisionalTransaction(transactionId: string) {
     async () => {
       const transaction = await database.transactions.get(transactionId)
       if (!transaction) throw new Error("Transaksi tidak ditemukan")
-      if (transaction.settlementStatus === "SETTLED") {
-        throw new Error("Transaksi settled bersifat immutable")
+      if (transaction.syncStatus === "SYNCED" || transaction.syncStatus === "SYNC_CONFLICT") {
+        throw new Error("Transaksi yang sudah sinkron bersifat immutable")
       }
       if (transaction.transactionStatus === "VOIDED") return transaction
 
@@ -67,7 +67,7 @@ export async function voidProvisionalTransaction(transactionId: string) {
       )
       await database.transactions.update(transactionId, {
         transactionStatus: "VOIDED",
-        syncStatus: "LOCAL_ONLY",
+        syncStatus: "PENDING_SYNC",
         lastSyncError: undefined,
       })
       const entry = await database.outbox.where("transactionId").equals(transactionId).first()

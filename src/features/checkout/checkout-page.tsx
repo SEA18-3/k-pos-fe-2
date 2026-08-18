@@ -42,7 +42,7 @@ export function CheckoutPage() {
   )
   const todaySales = todayTransactions.reduce((sum, transaction) => sum + transaction.total, 0)
   const provisional = transactions.filter(
-    (transaction) => transaction.settlementStatus === "PROVISIONAL",
+    (transaction) => transaction.syncStatus === "PENDING_SYNC",
   ).length
 
   async function handleConfirm(
@@ -89,7 +89,7 @@ export function CheckoutPage() {
             <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border bg-border text-right">
               <Metric label="Transaksi" value={String(todayTransactions.length)} />
               <Metric label="Penjualan" value={formatCurrency(todaySales)} />
-              <Metric label="Provisional" value={String(provisional)} warning={provisional > 0} />
+              <Metric label="Pending sync" value={String(provisional)} warning={provisional > 0} />
             </div>
           </div>
         </header>

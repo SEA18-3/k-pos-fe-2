@@ -48,8 +48,8 @@ export function buildLocalTransaction(
     amountReceived: input.amountReceived,
     change: input.amountReceived === undefined ? undefined : input.amountReceived - subtotal,
     transactionStatus: "CONFIRMED",
-    syncStatus: "LOCAL_ONLY",
-    settlementStatus: "PROVISIONAL",
+    syncStatus: "PENDING_SYNC",
+    offlineUuid: crypto.randomUUID(),
     createdAt: context.createdAt,
     retryCount: 0,
   }

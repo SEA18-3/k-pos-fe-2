@@ -21,7 +21,7 @@ async function recoverAbandonedSyncRecords() {
     await Promise.all(
       abandoned.flatMap((entry) => [
         database.outbox.update(entry.id, { status: "PENDING" }),
-        database.transactions.update(entry.transactionId, { syncStatus: "LOCAL_ONLY" }),
+        database.transactions.update(entry.transactionId, { syncStatus: "PENDING_SYNC" }),
       ]),
     )
   })

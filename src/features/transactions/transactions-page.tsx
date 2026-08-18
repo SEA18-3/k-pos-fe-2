@@ -9,13 +9,13 @@ import { Button } from "@/shared/ui/components/button"
 import { Card } from "@/shared/ui/components/card"
 import { Input } from "@/shared/ui/components/input"
 import { PageHeader } from "@/shared/ui/page-header"
-import { SettlementBadge, SyncBadge } from "@/shared/ui/status-badge"
+import { SyncBadge } from "@/shared/ui/status-badge"
 
 type Filter = "ALL" | "PENDING" | "SYNCED" | "FAILED" | "VOIDED"
 const filters: Array<{ value: Filter; label: string }> = [
   { value: "ALL", label: "Semua" },
   { value: "PENDING", label: "Pending Sync" },
-  { value: "SYNCED", label: "Settled" },
+  { value: "SYNCED", label: "Synced" },
   { value: "FAILED", label: "Gagal" },
   { value: "VOIDED", label: "Voided" },
 ]
@@ -35,13 +35,15 @@ export function TransactionsPage() {
       ),
     [transactions, filter, query],
   )
-  const provisional = transactions.filter((item) => item.settlementStatus === "PROVISIONAL").length
+  const provisional = transactions.filter(
+    (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
+  ).length
 
   return (
     <div>
       <PageHeader
         title="Transaksi"
-        description="Semua penjualan dari perangkat ini, termasuk status sync dan settlement saat offline."
+        description="Semua penjualan dari perangkat ini, termasuk status sinkronisasi saat offline."
       />
       <TransactionMetrics transactions={transactions} provisional={provisional} />
       <TransactionToolbar
@@ -77,7 +79,7 @@ function TransactionMetrics({
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
       <Metric label="Nilai transaksi" value={formatCurrency(total)} />
       <Metric
-        label="Settled"
+        label="Synced"
         value={String(transactions.length - provisional)}
         icon={<IconCloudCheck className="size-4 text-emerald-400" />}
       />
@@ -160,7 +162,6 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>{paymentLabels[transaction.paymentMethod]}</td>
                 <td>
                   <div className="flex gap-1">
-                    <SettlementBadge status={transaction.settlementStatus} />
                     <SyncBadge status={transaction.syncStatus} />
                   </div>
                 </td>
@@ -202,7 +203,6 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
                 {paymentLabels[transaction.paymentMethod]}
               </span>
               <div className="flex gap-1">
-                <SettlementBadge status={transaction.settlementStatus} />
                 <SyncBadge status={transaction.syncStatus} />
               </div>
             </div>
@@ -215,9 +215,9 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
 
 function matchesFilter(transaction: LocalTransaction, filter: Filter) {
   if (filter === "PENDING")
-    return transaction.syncStatus === "LOCAL_ONLY" || transaction.syncStatus === "SYNCING"
+    return transaction.syncStatus === "PENDING_SYNC" || transaction.syncStatus === "SYNCING"
   if (filter === "SYNCED") return transaction.syncStatus === "SYNCED"
-  if (filter === "FAILED") return transaction.syncStatus === "FAILED"
+  if (filter === "FAILED") return transaction.syncStatus === "SYNC_FAILED"
   if (filter === "VOIDED") return transaction.transactionStatus === "VOIDED"
   return true
 }

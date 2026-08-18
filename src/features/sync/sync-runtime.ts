@@ -10,6 +10,7 @@ import {
 } from "@/infrastructure/persistence/session-repository"
 import { writeSetting } from "@/infrastructure/persistence/settings-repository"
 
+import { reconcileSyncStatuses } from "./reconcile"
 import { createBrowserSyncScheduler } from "./browser-scheduler"
 import { LocalSyncRepository } from "./local-sync-repository"
 import { SyncService } from "./sync-service"
@@ -34,7 +35,14 @@ export const syncService = new SyncService({
 
 const scheduler = createBrowserSyncScheduler({
   probe: probeBackend,
-  sync: () => syncService.run(),
+  sync: async () => {
+    const count = await syncService.run()
+    const [session, device] = await Promise.all([getAuthSession(), getOrCreateDeviceIdentity()])
+    if (session && device) {
+      await reconcileSyncStatuses(session, device).catch(() => undefined)
+    }
+    return count
+  },
   refreshCatalog: refreshActiveCatalog,
   forcedOffline: () => useUiStore.getState().forcedOffline,
   setConnection: (connection) => useUiStore.getState().setConnection(connection),

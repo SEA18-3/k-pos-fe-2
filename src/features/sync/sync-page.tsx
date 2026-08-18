@@ -27,7 +27,7 @@ export function SyncPage() {
       return
     }
     const count = await syncService.run({ includeFailed: true })
-    toast.success(`${count} transaksi berhasil disinkronkan`)
+    toast.success(`${count} transaksi diantrekan ke server`)
   }
 
   return (
@@ -66,8 +66,8 @@ export function SyncPage() {
             <Diagnostic label="Payload schema" value="v1" />
             <Diagnostic label="Aktivitas sesi" value={`${attempts.length} attempt`} />
             <p className="rounded-md bg-secondary p-2 text-[10px] leading-4 text-muted-foreground">
-              Stable transaction ID dipakai ulang saat retry; `ALREADY_PROCESSED` diperlakukan
-              sebagai sukses.
+              Transaksi dikirim sebagai antrean async; status final (`SYNCED`/`SYNC_CONFLICT`)
+              didapat lewat poll rekonsiliasi, bukan langsung dari respons kirim.
             </p>
           </CardContent>
         </Card>
@@ -120,10 +120,10 @@ function QueueCard(props: {
       <CardContent className="p-0">
         {props.queued.length === 0 ? (
           <div className="grid min-h-56 place-items-center text-center">
-            <div>
-              <IconCloudCheck className="mx-auto mb-2 size-8 text-emerald-400" />
-              <p className="text-xs font-medium">Semua data sudah settled</p>
-            </div>
+              <div>
+                <IconCloudCheck className="mx-auto mb-2 size-8 text-emerald-400" />
+                <p className="text-xs font-medium">Semua data sudah tersinkron</p>
+              </div>
           </div>
         ) : (
           <div className="divide-y">
