@@ -53,10 +53,18 @@ export function transactionPayload(transaction: LocalTransaction, deviceId: stri
 }
 
 const backendSyncAckSchema = z.object({
-  message: z.string(),
+  status: z.string().optional(),
+  message: z.string().optional(),
   data: z.object({
-    accepted: z.number(),
-    queued_at: z.string(),
+    message: z.string().optional(),
+    data: z
+      .object({
+        accepted: z.number(),
+        queued_at: z.string(),
+      })
+      .optional(),
+    accepted: z.number().optional(),
+    queued_at: z.string().optional(),
   }),
 })
 
@@ -75,10 +83,18 @@ export async function sendTransactionBatch(
   const response = await requestJson(
     "/api/v1/sync",
     backendSyncAckSchema,
-    { method: "POST", body: JSON.stringify({ transactions: transactions.map((t) => transactionPayload(t, device.id)) }) },
+    {
+      method: "POST",
+      headers: {
+        "X-Device-ID": device.id,
+      },
+      body: JSON.stringify({ transactions: transactions.map((t) => transactionPayload(t, device.id)) }),
+    },
     session.token,
   )
-  return { accepted: response.data.accepted, queuedAt: response.data.queued_at }
+  const accepted = response.data.data?.accepted ?? response.data.accepted ?? 0
+  const queuedAt = response.data.data?.queued_at ?? response.data.queued_at ?? new Date().toISOString()
+  return { accepted, queuedAt }
 }
 
 export { ApiError, API_URL }

@@ -68,7 +68,7 @@ export async function activateAndLogin(input: {
   const user = result.data.user
   const session: AuthSession = {
     token: result.data.access_token,
-    refreshToken: result.data.refresh_token,
+    refreshToken: result.data.refresh_token ?? "",
     // id_merchant bisa null jika user belum memiliki merchant
     merchantId: user.id_merchant ?? "",
     operator: {
@@ -103,7 +103,7 @@ export async function bootstrapLocalData(session: AuthSession, device: DeviceIde
 
 /**
  * Logout online: revoke refresh token di backend.
- * Backend menggunakan header x-refresh-token, bukan body.
+ * Backend membaca HttpOnly cookie refreshToken atau header x-refresh-token.
  */
 export async function logoutOnline(session: AuthSession) {
   return requestJson(
@@ -111,8 +111,8 @@ export async function logoutOnline(session: AuthSession) {
     logoutResponseSchema,
     {
       method: "POST",
-      // Kirim refresh token sebagai header x-refresh-token (sesuai API contract)
-      headers: { "x-refresh-token": session.refreshToken },
+      headers: session.refreshToken ? { "x-refresh-token": session.refreshToken } : {},
     },
+    session.token,
   )
 }

@@ -23,7 +23,17 @@ export const successEnvelopeSchema = z.object({
 export const apiErrorResponseSchema = z.object({
   status: z.literal("error"),
   message: z.union([z.string(), z.array(z.string())]),
-  // backend kadang punya error_details, kadang tidak — jadikan optional
+  data: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.string().optional(),
+      details: z.unknown().optional(),
+      request_id: z.string().optional(),
+      path: z.string().optional(),
+      timestamp: z.string().optional(),
+    })
+    .optional(),
+  // Fallback direct root properties if any
   code: z.string().optional(),
   requestId: z.string().optional(),
 })
@@ -51,7 +61,7 @@ export const loginResponseSchema = z.object({
   message: z.string(),
   data: z.object({
     access_token: z.string(),
-    refresh_token: z.string(),
+    refresh_token: z.string().optional(), // Backend mengembalikan refresh_token via HttpOnly cookie
     user: z.object({
       id_user: z.string(),
       full_name: z.string(),
@@ -68,17 +78,23 @@ export const loginResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 /**
- * Backend hanya mengembalikan accepted count dan waktu antri.
- * Tidak ada per-transaksi result — transaksi diproses async oleh worker RabbitMQ.
- * Frontend akan menggunakan model "fire-and-forget" dan menganggap semua
- * transaksi dalam batch diterima selama HTTP 200 dikembalikan.
+ * Response sync dari backend.
+ * Backend controller mengembalikan { message, data: { accepted, queued_at } }
+ * yang dibungkus oleh TransformInterceptor menjadi data.data.
  */
 export const syncResponseSchema = z.object({
-  status: z.string(),
+  status: z.string().optional(),
   message: z.string(),
   data: z.object({
-    accepted: z.number(),
-    queued_at: z.string(),
+    message: z.string().optional(),
+    data: z
+      .object({
+        accepted: z.number(),
+        queued_at: z.string(),
+      })
+      .optional(),
+    accepted: z.number().optional(),
+    queued_at: z.string().optional(),
   }),
 })
 

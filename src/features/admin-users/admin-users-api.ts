@@ -55,14 +55,15 @@ const adminDeviceSchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-export type AdminDevice = z.output<typeof adminDeviceSchema>
-
 const deviceListResponseSchema = z.object({
-  status: z.string(),
-  message: z.string(),
-  data: z.object({
-    items: z.array(adminDeviceSchema),
-  }),
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.union([
+    z.array(adminDeviceSchema),
+    z.object({
+      items: z.array(adminDeviceSchema),
+    }),
+  ]),
 })
 
 const revokeDeviceResponseSchema = z.object({
@@ -123,9 +124,16 @@ export function updateOperator(
   )
 }
 
+export type AdminDevice = z.output<typeof adminDeviceSchema>
+
 /** Ambil daftar perangkat milik merchant */
-export function fetchDevices(session: AuthSession) {
-  return requestJson("/api/v1/devices", deviceListResponseSchema, {}, session.token)
+export async function fetchDevices(session: AuthSession) {
+  const response = await requestJson("/api/v1/devices", deviceListResponseSchema, {}, session.token)
+  const items = Array.isArray(response.data) ? response.data : response.data.items
+  return {
+    ...response,
+    data: { items },
+  }
 }
 
 /** Soft delete / revoke perangkat (DELETE /api/v1/devices/:id_device) */

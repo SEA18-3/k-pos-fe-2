@@ -51,6 +51,7 @@ export async function requestJson<TSchema extends ZodType>(
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       headers,
+      credentials: init.credentials ?? "include",
     })
   } catch {
     throw new ApiError("Backend tidak dapat dijangkau", 0, true, "NETWORK_UNREACHABLE")
@@ -64,12 +65,14 @@ export async function requestJson<TSchema extends ZodType>(
       const message = Array.isArray(parsedError.data.message)
         ? parsedError.data.message.join(", ")
         : parsedError.data.message
+      const code = parsedError.data.error?.code ?? parsedError.data.code ?? "ERROR"
+      const requestId = parsedError.data.error?.request_id ?? parsedError.data.requestId
       throw new ApiError(
         message,
         response.status,
         retryable,
-        parsedError.data.code ?? "ERROR",
-        parsedError.data.requestId,
+        code,
+        requestId,
       )
     }
     throw new ApiError(

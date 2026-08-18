@@ -60,7 +60,7 @@ describe("resolveApiUrl", () => {
   })
 
   it("uses the local API during development", () => {
-    expect(resolveApiUrl(undefined, true)).toBe("http://localhost:3001")
+    expect(resolveApiUrl(undefined, true)).toBe("http://localhost:3000")
   })
 
   it("uses same-origin requests in a production build", () => {

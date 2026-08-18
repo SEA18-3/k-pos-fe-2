@@ -8,11 +8,26 @@ const backendTransactionSyncSchema = z.object({
 })
 
 const transactionsResponseSchema = z.object({
-  data: z.array(backendTransactionSyncSchema),
-  meta: z.object({
-    next_cursor: z.string().nullable(),
-    limit: z.number(),
-  }),
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.union([
+    z.object({
+      data: z.array(backendTransactionSyncSchema),
+      meta: z
+        .object({
+          next_cursor: z.string().nullable().optional(),
+          limit: z.number().optional(),
+        })
+        .optional(),
+    }),
+    z.array(backendTransactionSyncSchema),
+  ]),
+  meta: z
+    .object({
+      next_cursor: z.string().nullable().optional(),
+      limit: z.number().optional(),
+    })
+    .optional(),
 })
 
 export type BackendTransactionSync = z.infer<typeof backendTransactionSyncSchema>
@@ -38,5 +53,11 @@ export async function fetchTransactions(
     { method: "GET" },
     token,
   )
-  return { items: response.data, nextCursor: response.meta.next_cursor }
+  if (Array.isArray(response.data)) {
+    return { items: response.data, nextCursor: response.meta?.next_cursor ?? null }
+  }
+  return {
+    items: response.data.data,
+    nextCursor: response.data.meta?.next_cursor ?? response.meta?.next_cursor ?? null,
+  }
 }

@@ -13,7 +13,7 @@ function session(now: number): AuthSession {
     refreshToken: "refreshToken",
     merchantId: "merchant",
     operator: { id: "operator", name: "Operator", role: "OPERATOR" },
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+    expiresAt: new Date(now + 12 * 60 * 60 * 1_000).toISOString(),
   }
 }
 
