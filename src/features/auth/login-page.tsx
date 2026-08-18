@@ -11,6 +11,7 @@ import {
   IconRefresh,
   IconUser,
 } from "@tabler/icons-react"
+import { Link } from "react-router-dom"
 
 import { activateAndLogin, bootstrapLocalData } from "@/features/auth/auth-api"
 import type { AuthSession, DeviceIdentity } from "@/infrastructure/persistence/models"
@@ -106,6 +107,12 @@ function LoginForm({
         <DeviceIdentityCard deviceId={device.id} />
         <p className="mt-6 text-center text-[10px] leading-5 text-muted-foreground">
           Demo: owner@kpos.com · password123
+        </p>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          Belum punya akun?{" "}
+          <Link to="/register" className="text-primary hover:underline font-semibold">
+            Daftar Toko Baru
+          </Link>
         </p>
       </form>
     </section>

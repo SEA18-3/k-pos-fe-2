@@ -49,6 +49,30 @@ const profileResponseSchema = z.object({
   }),
 })
 
+const registerResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.unknown().optional(),
+})
+
+export type RegisterOwnerRequest = {
+  full_name: string
+  email: string
+  password: string
+  merchant_name: string
+}
+
+export async function registerOwner(input: RegisterOwnerRequest) {
+  return requestJson(
+    "/api/v1/auth/register",
+    registerResponseSchema,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  )
+}
+
 /**
  * Login menggunakan email dan password.
  * Fungsi ini menggantikan flow lama (merchantCode + pin + activationCode).

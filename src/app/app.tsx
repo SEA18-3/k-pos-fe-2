@@ -52,6 +52,10 @@ const AdminCatalogPage = lazy(() =>
   })),
 )
 
+const RegisterPage = lazy(() =>
+  import("@/features/auth/register-page").then((module) => ({ default: module.RegisterPage })),
+)
+
 function RouteFallback() {
   return (
     <div className="grid min-h-[60svh] place-items-center">
@@ -98,9 +102,14 @@ export default function App() {
     )
   if (!session && device)
     return (
-      <Suspense fallback={<RouteFallback />}>
-        <LoginPage device={device} onAuthenticated={setSession} />
-      </Suspense>
+      <BrowserRouter>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="*" element={<LoginPage device={device} onAuthenticated={setSession} />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     )
 
   return (
