@@ -2,21 +2,18 @@ import type { AuthSession, DeviceIdentity, SyncStatus } from "@/infrastructure/p
 
 import { database } from "@/infrastructure/persistence/database"
 
-import { fetchTransactions } from "./transaction-api"
-
-const RESOLVED_STATUSES = "SYNCED,SYNC_FAILED,SYNC_CONFLICT"
-const PAGE_LIMIT = 100
+import { fetchSyncStatus } from "@/infrastructure/api/api-client"
 
 function mapServerStatus(server: string): SyncStatus | null {
   if (server === "SYNCED") return "SYNCED"
-  if (server === "SYNC_FAILED") return "SYNC_FAILED"
-  if (server === "SYNC_CONFLICT") return "SYNC_CONFLICT"
+  if (server === "FAILED") return "SYNC_FAILED"
+  if (server === "CONFLICT") return "SYNC_CONFLICT"
   return null
 }
 
 export async function reconcileSyncStatuses(
   session: AuthSession,
-  device: DeviceIdentity,
+  _device: DeviceIdentity,
 ): Promise<number> {
   const localPending = await database.transactions
     .where("syncStatus")
@@ -25,20 +22,24 @@ export async function reconcileSyncStatuses(
   if (localPending.length === 0) return 0
 
   const byOfflineUuid = new Map(localPending.map((transaction) => [transaction.offlineUuid, transaction]))
+  const offlineUuids = Array.from(byOfflineUuid.keys())
+  
+  // Chunk requests to avoid too long URLs (e.g. max 50 uuids per request)
+  const chunkSize = 50
   const resolved = new Map<string, string>()
-  let cursor: string | null = null
-  for (;;) {
-    const page = await fetchTransactions(session.token, {
-      id_device: device.id,
-      sync_status: RESOLVED_STATUSES,
-      cursor,
-      limit: PAGE_LIMIT,
-    })
-    for (const item of page.items) {
-      if (byOfflineUuid.has(item.offline_uuid)) resolved.set(item.offline_uuid, item.sync_status)
+  
+  for (let i = 0; i < offlineUuids.length; i += chunkSize) {
+    const chunk = offlineUuids.slice(i, i + chunkSize)
+    try {
+      const statuses = await fetchSyncStatus({ token: session.token }, chunk)
+      for (const item of statuses) {
+        if (item.status !== "PENDING") {
+          resolved.set(item.offline_uuid, item.status)
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to fetch sync status chunk", error)
     }
-    if (!page.nextCursor) break
-    cursor = page.nextCursor
   }
 
   let updated = 0

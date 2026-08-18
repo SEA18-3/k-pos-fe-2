@@ -99,4 +99,38 @@ export async function sendTransactionBatch(
   return { accepted, queuedAt }
 }
 
+export type BackendSyncStatus = {
+  offline_uuid: string
+  status: "CONFLICT" | "SYNCED" | "FAILED" | "PENDING"
+  transaction_id: string | null
+  error: string | null
+}
+
+const syncStatusResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.array(
+    z.object({
+      offline_uuid: z.string(),
+      status: z.enum(["CONFLICT", "SYNCED", "FAILED", "PENDING"]),
+      transaction_id: z.string().nullable(),
+      error: z.string().nullable(),
+    })
+  ),
+})
+
+export async function fetchSyncStatus(
+  session: { token: string },
+  offlineUuids: string[],
+): Promise<BackendSyncStatus[]> {
+  if (DEMO_MODE || offlineUuids.length === 0) return []
+  const response = await requestJson(
+    `/api/v1/sync/status?offline_uuid=${encodeURIComponent(offlineUuids.join(","))}`,
+    syncStatusResponseSchema,
+    { method: "GET" },
+    session.token,
+  )
+  return response.data
+}
+
 export { ApiError, API_URL }
