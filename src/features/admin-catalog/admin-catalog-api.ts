@@ -149,6 +149,16 @@ export function setAdminProductArchived(
   }
 }
 
+const stockAdjustmentResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    id_product: z.string(),
+    previous_stock: z.number(),
+    current_stock: z.number(),
+  }),
+})
+
 /** Sesuaikan stok produk (Inventory Reconciliation) */
 export function adjustAdminProductStock(
   session: AuthSession,
@@ -158,7 +168,7 @@ export function adjustAdminProductStock(
 ) {
   return requestJson(
     `/api/v1/products/${encodeURIComponent(productId)}/stock`,
-    productMutationResponseSchema, // Backend mengembalikan data produk beserta inventory terbaru
+    stockAdjustmentResponseSchema,
     { 
       method: "POST", 
       headers: { "Content-Type": "application/json" },

@@ -32,16 +32,38 @@ export function useAdminCatalog() {
 
   useEffect(() => void refresh(), [refresh])
 
-  async function run(id: string, action: () => Promise<{ data: Product } | { data: { id_product: string; is_active: boolean } }>, message: string) {
+  async function run(id: string, action: () => Promise<any>, message: string) {
     setMutatingId(id)
     try {
       const result = await action()
-      // Jika action adalah archive, result.data hanya berisi id_product & is_active
       if ("name" in result.data) {
         const product = result.data as Product
         setProducts((current) => upsertProduct(current, product))
         toast.success(message)
         return product
+      } else if ("current_stock" in result.data) {
+        const stockData = result.data as { id_product: string; current_stock: number }
+        setProducts((current) =>
+          current.map((p) =>
+            p.id_product === stockData.id_product
+              ? {
+                  ...p,
+                  inventory: p.inventory
+                    ? { ...p.inventory, current_stock: stockData.current_stock }
+                    : {
+                        id_inventory: "",
+                        id_product: p.id_product,
+                        id_merchant: "",
+                        current_stock: stockData.current_stock,
+                        reserved: 0,
+                        last_updated: new Date().toISOString(),
+                      },
+                }
+              : p,
+          ),
+        )
+        toast.success(message)
+        return null
       } else {
         // Ini soft delete archive
         const partial = result.data as { id_product: string; is_active: boolean }
