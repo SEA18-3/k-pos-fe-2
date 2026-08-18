@@ -62,6 +62,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     })
   }, [connection])
 
+  async function handleLogout() {
+    if (session) {
+      await logoutOnline(session).catch(() => {})
+    }
+    await clearAuthSession()
+    window.location.reload()
+  }
+
   async function toggleConnection() {
     if (switching) return
     if (connection === "ONLINE") {
