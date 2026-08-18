@@ -10,6 +10,11 @@ export type BackendProduct = {
   is_active: boolean
   created_at: string
   updated_at: string
+  inventory?: {
+    current_stock: number
+    reserved: number
+    last_updated: string
+  }
 }
 
 export function decimalToNumber(value: string): number {
@@ -28,7 +33,7 @@ export function mapProduct(backend: BackendProduct): Product {
     description: "",
     category: "",
     price: decimalToNumber(backend.price),
-    stock: 0,
+    stock: backend.inventory?.current_stock ?? 0,
     accent: "#64748b",
     featured: false,
     active: backend.is_active,
