@@ -19,7 +19,7 @@ export function createBrowserSyncScheduler(dependencies: SchedulerDependencies) 
     }
     dependencies.setConnection("RECONNECTING")
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 3_000)
+    const timeout = window.setTimeout(() => controller.abort(), 30_000)
     try {
       await dependencies.probe(controller.signal)
       dependencies.setConnection("ONLINE")
