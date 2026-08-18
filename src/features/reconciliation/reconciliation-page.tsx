@@ -7,12 +7,8 @@ import {
   ResolutionDialog,
 } from "@/features/reconciliation/reconciliation-dialogs"
 import {
-  AuditPanel,
-  DeskTabs,
-  InventoryPanel,
   PaymentRiskPanel,
   ReconciliationMetrics,
-  type ReconciliationDesk,
 } from "@/features/reconciliation/reconciliation-panels"
 import { useReconciliationDesk } from "@/features/reconciliation/use-reconciliation-desk"
 import { Button } from "@/shared/ui/components/button"
@@ -20,14 +16,13 @@ import { PageHeader } from "@/shared/ui/page-header"
 
 export function ReconciliationPage() {
   const data = useReconciliationDesk()
-  const [desk, setDesk] = useState<ReconciliationDesk>("PAYMENTS")
   const [transaction, setTransaction] = useState<BackendTransaction | null>(null)
-  const [discrepancy, setDiscrepancy] = useState<InventoryDiscrepancy | null>(null)
+  const [conflictTx, setConflictTx] = useState<BackendTransaction | null>(null)
   return (
     <div>
       <PageHeader
         title="Reconciliation desk"
-        description="Koreksi pembayaran dan selesaikan proyeksi stok tanpa pernah mengubah histori transaksi asli."
+        description="Koreksi pembayaran tanpa pernah mengubah histori transaksi asli."
         actions={
           <Button variant="outline" onClick={() => void data.refresh()} disabled={data.loading}>
             <IconRefresh className={data.loading ? "animate-spin" : ""} /> Refresh
@@ -39,15 +34,12 @@ export function ReconciliationPage() {
         corrections={data.corrections.length}
         open={data.openDiscrepancyCount}
       />
-      <DeskTabs value={desk} onChange={setDesk} />
       <div className="p-4 sm:p-6">
-        {desk === "PAYMENTS" && (
-          <PaymentRiskPanel transactions={data.transactions} onCorrect={setTransaction} />
-        )}
-        {desk === "INVENTORY" && (
-          <InventoryPanel discrepancies={data.discrepancies} onResolve={setDiscrepancy} />
-        )}
-        {desk === "AUDIT" && <AuditPanel corrections={data.corrections} />}
+        <PaymentRiskPanel
+          transactions={data.transactions}
+          onCorrect={setTransaction}
+          onResolve={setConflictTx}
+        />
       </div>
       <CorrectionDialog
         transaction={transaction}
@@ -55,8 +47,8 @@ export function ReconciliationPage() {
         onSubmit={data.correct}
       />
       <ResolutionDialog
-        discrepancy={discrepancy}
-        onClose={() => setDiscrepancy(null)}
+        transaction={conflictTx}
+        onClose={() => setConflictTx(null)}
         onSubmit={data.resolve}
       />
     </div>

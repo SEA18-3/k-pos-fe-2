@@ -96,10 +96,10 @@ export function CorrectionDialog(props: {
 }
 
 /**
- * Dialog untuk resolve konflik inventory (placeholder — endpoint belum ada di backend).
+ * Dialog untuk resolve konflik sinkronisasi (SYNC_CONFLICT).
  */
 export function ResolutionDialog(props: {
-  discrepancy: InventoryDiscrepancy | null
+  transaction: BackendTransaction | null
   onClose: () => void
   onSubmit: (id: string, input: ResolveConflictRequest) => Promise<boolean>
 }) {
@@ -107,23 +107,23 @@ export function ResolutionDialog(props: {
 
   useEffect(() => {
     setNotes("")
-  }, [props.discrepancy])
+  }, [props.transaction])
 
-  const submit = async () => {
-    if (!props.discrepancy) return
-    const saved = await props.onSubmit(props.discrepancy.id, {
-      action: "CONFIRM",
+  const submit = async (action: "CONFIRM" | "VOID") => {
+    if (!props.transaction) return
+    const saved = await props.onSubmit(props.transaction.id_transaction, {
+      action,
       notes,
     })
     if (saved) props.onClose()
   }
 
   return (
-    <Dialog open={Boolean(props.discrepancy)} onOpenChange={(open) => !open && props.onClose()}>
+    <Dialog open={Boolean(props.transaction)} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Resolve inventory discrepancy</DialogTitle>
-          <DialogDescription>Catat hasil stock opname atau penyesuaian admin.</DialogDescription>
+          <DialogTitle>Resolve Sync Conflict</DialogTitle>
+          <DialogDescription>Selesaikan konflik transaksi ini secara manual.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <Field label="Resolution note">
@@ -131,18 +131,19 @@ export function ResolutionDialog(props: {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
+              placeholder="Alasan penyelesaian..."
             />
-          </Field>
-          <Field label="Adjusted stock">
-            <Input type="number" placeholder="0" disabled />
           </Field>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={props.onClose}>
             Batal
           </Button>
-          <Button disabled={notes.length < 8} onClick={() => void submit()}>
-            Resolve
+          <Button variant="destructive" disabled={notes.length < 8} onClick={() => void submit("VOID")}>
+            Void
+          </Button>
+          <Button disabled={notes.length < 8} onClick={() => void submit("CONFIRM")}>
+            Confirm
           </Button>
         </DialogFooter>
       </DialogContent>
