@@ -108,7 +108,19 @@ export default function App() {
       <AppShell>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<CheckoutPage />} />
+            <Route
+              path="/"
+              element={
+                session?.operator.role === "OPERATOR" ? (
+                  <CheckoutPage />
+                ) : (
+                  <Navigate
+                    to={session?.operator.role === "OWNER" ? "/admin/catalog" : "/products"}
+                    replace
+                  />
+                )
+              }
+            />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/transactions/:id" element={<TransactionDetailPage />} />
             <Route path="/products" element={<ProductsPage />} />

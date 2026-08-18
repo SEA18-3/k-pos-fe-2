@@ -43,9 +43,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { lastSyncAt, pendingCount } = useSyncOverview()
   const session = useCurrentSession()
   const merchant = useMerchantProfile()
-  const visibleNavItems = navItems.filter(
-    (item) => !item.adminOnly || session?.operator.role === "OWNER",
-  )
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.adminOnly && session?.operator.role !== "OWNER") return false
+    if (item.label === "Kasir" && session?.operator.role !== "OPERATOR") return false
+    return true
+  })
 
   useEffect(() => {
     if (connection !== "ONLINE") return
