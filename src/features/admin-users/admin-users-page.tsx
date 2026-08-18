@@ -29,7 +29,6 @@ export function AdminUsersPage() {
           onCreate={admin.create}
           onActiveChange={admin.setActive}
           onRoleChange={admin.setRole}
-          onResetPin={admin.resetPin}
         />
         <DevicePanel
           devices={admin.devices}

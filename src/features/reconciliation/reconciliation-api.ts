@@ -1,65 +1,183 @@
-import {
-  backendTransactionListResponseSchema,
-  correctionListResponseSchema,
-  createCorrectionResponseSchema,
-  inventoryDiscrepancyListResponseSchema,
-  resolveInventoryDiscrepancyResponseSchema,
-  type BackendTransaction,
-  type CorrectionRecord,
-  type CreateCorrectionRequest,
-  type InventoryDiscrepancy,
-  type ResolveInventoryDiscrepancyRequest,
-} from "@operator/contracts"
+/**
+ * reconciliation-api.ts
+ *
+ * Mengintegrasikan fitur rekonsiliasi dengan endpoint backend K-POS.
+ *
+ * Endpoint backend yang digunakan:
+ *  - GET  /api/v1/transactions?sync_status=SYNC_CONFLICT — transaksi berkonflik
+ *  - GET  /api/v1/transactions                           — semua transaksi
+ *  - POST /api/v1/transactions/:id/resolve               — selesaikan konflik
+ *  - POST /api/v1/transactions/:id/correct               — koreksi transaksi CONFIRMED
+ */
 
+import { z } from "zod"
 import { requestJson } from "@/infrastructure/api/http-client"
 import type { AuthSession } from "@/infrastructure/persistence/models"
 
-export function fetchBackendTransactions(session: AuthSession, paymentRiskOnly = false) {
+// ---------------------------------------------------------------------------
+// Zod Schemas
+// ---------------------------------------------------------------------------
+
+const backendPaymentSchema = z.object({
+  id_payment: z.string(),
+  amount: z.string().or(z.number()),
+  method: z.enum(["CASH", "STATIC_QRIS", "BANK_TRANSFER"]),
+  status: z.enum(["PENDING", "VERIFIED", "FAILED", "RECONCILED"]),
+  cash_received: z.string().or(z.number()).nullable().optional(),
+  change_amount: z.string().or(z.number()).nullable().optional(),
+  qris_code: z.string().nullable().optional(),
+  transfer_ref: z.string().nullable().optional(),
+  verified_at: z.string().nullable().optional(),
+  verified_by: z.string().nullable().optional(),
+  reconciliation_note: z.string().nullable().optional(),
+})
+
+const backendTransactionSchema = z.object({
+  id_transaction: z.string(),
+  id_merchant: z.string(),
+  id_user: z.string(),
+  id_device: z.string(),
+  offline_uuid: z.string().nullable().optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "VOIDED", "FAILED"]),
+  sync_status: z.enum(["PENDING_SYNC", "SYNCING", "SYNCED", "SYNC_FAILED", "SYNC_CONFLICT"]),
+  subtotal: z.string().or(z.number()),
+  total: z.string().or(z.number()),
+  notes: z.string().nullable().optional(),
+  created_at_local: z.string().nullable().optional(),
+  created_at: z.string(),
+  confirmed_at: z.string().nullable().optional(),
+  synced_at: z.string().nullable().optional(),
+  voided_at: z.string().nullable().optional(),
+  voided_by: z.string().nullable().optional(),
+  void_reason: z.string().nullable().optional(),
+  payment: backendPaymentSchema.nullable().optional(),
+})
+
+export type BackendTransaction = z.output<typeof backendTransactionSchema>
+
+const transactionListResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    data: z.array(backendTransactionSchema),
+    meta: z.object({
+      next_cursor: z.string().nullable(),
+      limit: z.number(),
+    }),
+  }),
+})
+
+const resolveResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    message: z.string().optional(),
+    data: backendTransactionSchema.optional(),
+  }).passthrough(),
+})
+
+const correctItemSchema = z.object({
+  id_product: z.string(),
+  quantity: z.number(),
+  unit_price: z.number(),
+  subtotal: z.number(),
+})
+
+const correctionResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    message: z.string().optional(),
+    data: z.object({
+      id_correction: z.string(),
+      id_old_transaction: z.string(),
+      id_new_transaction: z.string(),
+      corrected_by: z.string(),
+      reason: z.string(),
+      created_at: z.string(),
+    }).optional(),
+  }).passthrough(),
+})
+
+// ---------------------------------------------------------------------------
+// Request Types
+// ---------------------------------------------------------------------------
+
+export type CreateCorrectionRequest = {
+  reason: string
+  items: Array<{
+    id_product: string
+    quantity: number
+    unit_price: number
+    subtotal: number
+  }>
+  subtotal: number
+  total: number
+}
+
+export type ResolveConflictRequest = {
+  action: "CONFIRM" | "VOID"
+  notes?: string
+}
+
+export type CorrectionRecord = {
+  id_correction: string
+  id_old_transaction: string
+  id_new_transaction: string
+  corrected_by: string
+  reason: string
+  created_at: string
+}
+
+export type InventoryDiscrepancy = {
+  id: string
+  description: string
+}
+
+// ---------------------------------------------------------------------------
+// API Functions (disesuaikan dengan endpoint backend K-POS)
+// ---------------------------------------------------------------------------
+
+/** Ambil semua transaksi (bisa difilter dengan query params) */
+export function fetchBackendTransactions(
+  session: AuthSession,
+  params: { sync_status?: string; limit?: number } = {},
+) {
+  const query = new URLSearchParams()
+  if (params.sync_status) query.set("sync_status", params.sync_status)
+  if (params.limit) query.set("limit", String(params.limit))
+  const qs = query.toString() ? `?${query.toString()}` : ""
+  return requestJson(`/api/v1/transactions${qs}`, transactionListResponseSchema, {}, session.token)
+}
+
+/** Selesaikan satu transaksi SYNC_CONFLICT secara manual (CONFIRM atau VOID) */
+export function resolveConflict(
+  session: AuthSession,
+  transactionId: string,
+  input: ResolveConflictRequest,
+) {
   return requestJson(
-    `/v1/transactions?limit=100&paymentRiskOnly=${paymentRiskOnly}`,
-    backendTransactionListResponseSchema,
-    {},
+    `/api/v1/transactions/${encodeURIComponent(transactionId)}/resolve`,
+    resolveResponseSchema,
+    { method: "POST", body: JSON.stringify(input) },
     session.token,
   )
 }
 
+/** Buat koreksi pada transaksi CONFIRMED (Immutable Bridge pattern) */
 export function createCorrection(
   session: AuthSession,
   transactionId: string,
   input: CreateCorrectionRequest,
 ) {
   return requestJson(
-    `/v1/admin/transactions/${encodeURIComponent(transactionId)}/corrections`,
-    createCorrectionResponseSchema,
+    `/api/v1/transactions/${encodeURIComponent(transactionId)}/correct`,
+    correctionResponseSchema,
     { method: "POST", body: JSON.stringify(input) },
     session.token,
   )
 }
 
-export function fetchCorrections(session: AuthSession) {
-  return requestJson("/v1/admin/corrections", correctionListResponseSchema, {}, session.token)
-}
-
-export function fetchInventoryDiscrepancies(session: AuthSession) {
-  return requestJson(
-    "/v1/inventory/discrepancies",
-    inventoryDiscrepancyListResponseSchema,
-    {},
-    session.token,
-  )
-}
-
-export function resolveInventoryDiscrepancy(
-  session: AuthSession,
-  id: string,
-  input: ResolveInventoryDiscrepancyRequest,
-) {
-  return requestJson(
-    `/v1/inventory/discrepancies/${encodeURIComponent(id)}/resolve`,
-    resolveInventoryDiscrepancyResponseSchema,
-    { method: "POST", body: JSON.stringify(input) },
-    session.token,
-  )
-}
-
-export type { BackendTransaction, CorrectionRecord, InventoryDiscrepancy }
+// Fungsi-fungsi lama yang belum memiliki endpoint backend:
+// fetchCorrections, fetchInventoryDiscrepancies, resolveInventoryDiscrepancy
+// TODO: Implementasikan setelah endpoint backend tersedia

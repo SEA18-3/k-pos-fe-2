@@ -40,10 +40,8 @@ function LoginForm({
   device: DeviceIdentity
   onAuthenticated: (session: AuthSession) => void
 }) {
-  const [merchantCode, setMerchantCode] = useState("KEDAI-NUSA")
-  const [operatorCode, setOperatorCode] = useState("RANI")
-  const [pin, setPin] = useState("1234")
-  const [activationCode, setActivationCode] = useState("COMP18-DEMO")
+  const [email, setEmail] = useState("owner@kpos.com")
+  const [password, setPassword] = useState("password123")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -52,13 +50,7 @@ function LoginForm({
     setLoading(true)
     setError("")
     try {
-      const session = await activateAndLogin({
-        merchantCode,
-        operatorCode,
-        pin,
-        activationCode,
-        device,
-      })
+      const session = await activateAndLogin({ email, password, device })
       await bootstrapLocalData(session, device)
       onAuthenticated(session)
     } catch (cause) {
@@ -82,38 +74,22 @@ function LoginForm({
         </p>
 
         <div className="mt-7 grid gap-4">
-          <LoginField label="Kode merchant" icon={<IconBuildingStore />}>
+          <LoginField label="Email Pengguna" icon={<IconUser />}>
             <Input
-              value={merchantCode}
-              onChange={(event) => setMerchantCode(event.target.value.toUpperCase())}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="h-11 bg-background/60 pr-10"
-              autoComplete="organization"
-            />
-          </LoginField>
-          <LoginField label="Kode operator" icon={<IconUser />}>
-            <Input
-              value={operatorCode}
-              onChange={(event) => setOperatorCode(event.target.value.toUpperCase())}
-              className="h-11 bg-background/60 pr-10"
+              type="email"
               autoComplete="username"
             />
           </LoginField>
-          <LoginField label="PIN operator" icon={<IconLock />}>
+          <LoginField label="Kata Sandi" icon={<IconLock />}>
             <Input
-              value={pin}
-              onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               className="h-11 bg-background/60 pr-10"
               type="password"
-              inputMode="numeric"
               autoComplete="current-password"
-            />
-          </LoginField>
-          <LoginField label="Kode aktivasi device" icon={<IconKey />}>
-            <Input
-              value={activationCode}
-              onChange={(event) => setActivationCode(event.target.value.toUpperCase())}
-              className="h-11 bg-background/60 pr-10"
-              autoComplete="off"
             />
           </LoginField>
         </div>
@@ -129,7 +105,7 @@ function LoginForm({
         </Button>
         <DeviceIdentityCard deviceId={device.id} />
         <p className="mt-6 text-center text-[10px] leading-5 text-muted-foreground">
-          Demo: KEDAI-NUSA · RANI · PIN 1234 · COMP18-DEMO
+          Demo: owner@kpos.com · password123
         </p>
       </form>
     </section>

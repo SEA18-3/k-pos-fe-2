@@ -3,7 +3,7 @@ import type {
   DeviceIdentity,
   LocalTransaction,
 } from "@/infrastructure/persistence/models"
-import type { SyncResult } from "@operator/contracts"
+import type { SyncResult } from "@/infrastructure/api/api-client"
 
 import { ApiError } from "@/infrastructure/api/api-client"
 

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { BackendTransaction, InventoryDiscrepancy } from "@operator/contracts"
+import type { BackendTransaction, InventoryDiscrepancy } from "@/features/reconciliation/reconciliation-api"
 import { IconRefresh } from "@tabler/icons-react"
 
 import {

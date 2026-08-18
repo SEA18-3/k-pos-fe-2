@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const session = useCurrentSession()
   const merchant = useMerchantProfile()
   const visibleNavItems = navItems.filter(
-    (item) => !item.adminOnly || session?.operator.role === "ADMIN",
+    (item) => !item.adminOnly || session?.operator.role === "OWNER",
   )
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         merchantName={merchant?.name}
         merchantId={merchant?.id}
         operatorName={session?.operator.name}
-        admin={session?.operator.role === "ADMIN"}
+        admin={session?.operator.role === "OWNER"}
         pendingCount={pendingCount}
       />
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import type { Product, ProductInput, ProductPatch } from "@operator/contracts"
+import type { BackendProduct as Product, ProductInput, ProductPatch } from "@/features/admin-catalog/admin-catalog-api"
 import { toast } from "sonner"
 
 import {
@@ -20,7 +20,8 @@ export function useAdminCatalog() {
     if (!session) return
     setLoading(true)
     try {
-      setProducts((await fetchAdminProducts(session)).products)
+      const response = await fetchAdminProducts(session)
+      setProducts(response.data.items)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Katalog Admin gagal dimuat")
     } finally {
@@ -30,13 +31,23 @@ export function useAdminCatalog() {
 
   useEffect(() => void refresh(), [refresh])
 
-  async function run(id: string, action: () => Promise<{ product: Product }>, message: string) {
+  async function run(id: string, action: () => Promise<{ data: Product } | { data: { id_product: string; is_active: boolean } }>, message: string) {
     setMutatingId(id)
     try {
-      const { product } = await action()
-      setProducts((current) => upsertProduct(current, product))
-      toast.success(message)
-      return product
+      const result = await action()
+      // Jika action adalah archive, result.data hanya berisi id_product & is_active
+      if ("name" in result.data) {
+        const product = result.data as Product
+        setProducts((current) => upsertProduct(current, product))
+        toast.success(message)
+        return product
+      } else {
+        // Ini soft delete archive
+        const partial = result.data as { id_product: string; is_active: boolean }
+        setProducts((current) => current.map((p) => p.id_product === partial.id_product ? { ...p, is_active: partial.is_active } : p))
+        toast.success(message)
+        return null
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Produk gagal disimpan")
       return null
@@ -61,8 +72,8 @@ export function useAdminCatalog() {
     setArchived: (product: Product, archived: boolean) =>
       session
         ? run(
-            product.id,
-            () => setAdminProductArchived(session, product.id, archived),
+            product.id_product,
+            () => setAdminProductArchived(session, product.id_product, archived) as any,
             archived ? "Produk diarsipkan" : "Produk dipulihkan",
           )
         : Promise.resolve(null),
@@ -70,7 +81,7 @@ export function useAdminCatalog() {
 }
 
 function upsertProduct(products: Product[], product: Product) {
-  const next = products.filter((item) => item.id !== product.id)
+  const next = products.filter((item) => item.id_product !== product.id_product)
   next.push(product)
   return next.sort((left, right) => left.name.localeCompare(right.name))
 }

@@ -1,5 +1,5 @@
 import type { OutboxEntry, SyncStatus } from "@/infrastructure/persistence/models"
-import type { SyncResult } from "@operator/contracts"
+import type { SyncResult } from "@/infrastructure/api/api-client"
 
 export const BATCH_SIZE = 25
 const BASE_RETRY_MS = 1_000

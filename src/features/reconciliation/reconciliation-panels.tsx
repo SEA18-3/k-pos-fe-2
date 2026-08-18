@@ -2,7 +2,7 @@ import type {
   BackendTransaction,
   CorrectionRecord,
   InventoryDiscrepancy,
-} from "@operator/contracts"
+} from "@/features/reconciliation/reconciliation-api"
 import {
   IconAlertTriangle,
   IconArrowDownRight,
@@ -76,7 +76,7 @@ export function PaymentRiskPanel(props: {
     <div className="grid gap-3">
       {props.transactions.map((transaction) => (
         <Card
-          key={transaction.id}
+          key={transaction.id_transaction}
           className="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
         >
           <div className="flex items-center gap-3">
@@ -85,22 +85,22 @@ export function PaymentRiskPanel(props: {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold">{transaction.invoiceNumber}</span>
-                <Badge variant="warning">Operator asserted</Badge>
-                {transaction.correctionTotal !== 0 && (
-                  <Badge variant="outline">
-                    Adjusted {formatCurrency(transaction.correctionTotal)}
-                  </Badge>
-                )}
+                <span className="text-xs font-semibold">{transaction.id_transaction}</span>
+                <Badge variant="warning">Sync conflict</Badge>
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                {paymentLabels[transaction.paymentMethod]} ·{" "}
-                {formatTransactionDate(transaction.createdAtDevice)} · {transaction.operatorName}
+                {transaction.payment
+                  ? (paymentLabels as Record<string, string>)[transaction.payment.method] ??
+                    transaction.payment.method
+                  : "—"}{" "}
+                · {formatTransactionDate(transaction.created_at_local ?? transaction.created_at)}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <strong className="text-sm tabular-nums">{formatCurrency(transaction.total)}</strong>
+            <strong className="text-sm tabular-nums">
+              {formatCurrency(Number(transaction.total))}
+            </strong>
             <Button size="sm" onClick={() => props.onCorrect(transaction)}>
               Buat correction
             </Button>
@@ -129,22 +129,12 @@ export function InventoryPanel(props: {
         <Card key={item.id} className="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold">{item.productName}</span>
-              <Badge variant={item.status === "OPEN" ? "warning" : "success"}>{item.status}</Badge>
+              <span className="text-xs font-semibold">{item.description}</span>
             </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">
-              Detected {formatTransactionDate(item.detectedAt)} · projection{" "}
-              <span className="text-red-400">{item.projectedStock}</span>
-            </div>
-            {item.resolution && (
-              <div className="mt-1 text-[10px] text-muted-foreground">{item.resolution}</div>
-            )}
           </div>
-          {item.status === "OPEN" && (
-            <Button size="sm" onClick={() => props.onResolve(item)}>
-              Resolve
-            </Button>
-          )}
+          <Button size="sm" onClick={() => props.onResolve(item)}>
+            Resolve
+          </Button>
         </Card>
       ))}
     </div>
@@ -163,28 +153,23 @@ export function AuditPanel({ corrections }: { corrections: CorrectionRecord[] })
   return (
     <div className="grid gap-3">
       {corrections.map((item) => (
-        <Card key={item.id} className="p-3">
+        <Card key={item.id_correction} className="p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold">{item.invoiceNumber}</span>
+                <span className="text-xs font-semibold font-mono">
+                  {item.id_old_transaction}
+                </span>
                 <Badge variant="outline">Immutable original</Badge>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">{item.reason}</p>
               <div className="mt-2 text-[10px] text-muted-foreground">
-                {item.adminName} · {formatTransactionDate(item.createdAt)}
-                {item.evidenceReference ? ` · ${item.evidenceReference}` : ""}
+                {item.corrected_by} · {formatTransactionDate(item.created_at)}
               </div>
             </div>
-            <strong
-              className={cn(
-                "text-sm tabular-nums",
-                item.adjustmentAmount < 0 ? "text-red-400" : "text-emerald-400",
-              )}
-            >
-              {item.adjustmentAmount > 0 ? "+" : ""}
-              {formatCurrency(item.adjustmentAmount)}
-            </strong>
+            <span className="text-sm font-semibold text-muted-foreground">
+              → {item.id_new_transaction}
+            </span>
           </div>
         </Card>
       ))}

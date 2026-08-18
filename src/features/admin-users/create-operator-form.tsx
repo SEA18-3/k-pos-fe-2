@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { CreateOperatorRequest } from "@operator/contracts"
+import type { CreateOperatorRequest } from "@/features/admin-users/admin-users-api"
 import { IconPlus } from "@tabler/icons-react"
 
 import { Button } from "@/shared/ui/components/button"
@@ -9,45 +9,42 @@ export function CreateOperatorForm(props: {
   busy: boolean
   onCreate: (input: CreateOperatorRequest) => Promise<boolean>
 }) {
-  const [code, setCode] = useState("")
-  const [name, setName] = useState("")
-  const [pin, setPin] = useState("")
+  const [email, setEmail] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [password, setPassword] = useState("")
   const [role, setRole] = useState<CreateOperatorRequest["role"]>("OPERATOR")
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    const created = await props.onCreate({ code, name, pin, role })
+    const created = await props.onCreate({ email, full_name: fullName, password, role })
     if (!created) return
-    setCode("")
-    setName("")
-    setPin("")
+    setEmail("")
+    setFullName("")
+    setPassword("")
     setRole("OPERATOR")
   }
 
   return (
     <form onSubmit={submit} className="grid gap-2 border-b bg-muted/15 p-4 md:grid-cols-4">
       <Input
-        value={code}
-        onChange={(event) => setCode(event.target.value.toUpperCase())}
-        placeholder="Kode operator"
-        minLength={2}
-        maxLength={32}
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="Email operator"
+        type="email"
         required
       />
       <Input
-        value={name}
-        onChange={(event) => setName(event.target.value)}
+        value={fullName}
+        onChange={(event) => setFullName(event.target.value)}
         placeholder="Nama lengkap"
         required
       />
       <Input
-        value={pin}
-        onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
-        placeholder="PIN 4–8 digit"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        placeholder="Password"
         type="password"
-        inputMode="numeric"
-        minLength={4}
-        maxLength={8}
+        minLength={6}
         required
       />
       <div className="flex gap-2">
@@ -56,8 +53,8 @@ export function CreateOperatorForm(props: {
           onChange={(event) => setRole(event.target.value as CreateOperatorRequest["role"])}
           className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs"
         >
-          <option value="OPERATOR">Kasir</option>
-          <option value="ADMIN">Admin</option>
+          <option value="OPERATOR">Operator</option>
+          <option value="ENTRY">Entry</option>
         </select>
         <Button type="submit" disabled={props.busy}>
           <IconPlus /> Tambah

@@ -1,10 +1,19 @@
-import { apiErrorResponseSchema } from "@operator/contracts"
+/**
+ * http-client.ts
+ *
+ * HTTP utility layer generik — menangani auth header, JSON parsing, dan error normalisasi.
+ * Seluruh endpoint dianggap relatif terhadap API_URL.
+ * Default dev URL diubah ke port 3000 sesuai NestJS backend.
+ */
+
+import { apiErrorResponseSchema } from "@/lib/contracts"
 import { z, type ZodType } from "zod"
 
 export function resolveApiUrl(configuredUrl: string | undefined, isDevelopment: boolean) {
   const normalizedUrl = configuredUrl?.trim().replace(/\/+$/, "")
   if (normalizedUrl) return normalizedUrl
-  return isDevelopment ? "http://localhost:3001" : ""
+  // Backend NestJS berjalan di port 3000 (bukan 3001)
+  return isDevelopment ? "http://localhost:3000" : ""
 }
 
 export const API_URL = resolveApiUrl(
@@ -16,8 +25,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly code: string,
     readonly retryable: boolean,
+    readonly code?: string,
     readonly requestId?: string,
   ) {
     super(message)
@@ -44,7 +53,7 @@ export async function requestJson<TSchema extends ZodType>(
       headers,
     })
   } catch {
-    throw new ApiError("Backend tidak dapat dijangkau", 0, "NETWORK_UNREACHABLE", true)
+    throw new ApiError("Backend tidak dapat dijangkau", 0, true, "NETWORK_UNREACHABLE")
   }
 
   const body: unknown = await response.json().catch(() => null)
@@ -52,29 +61,33 @@ export async function requestJson<TSchema extends ZodType>(
     const parsedError = apiErrorResponseSchema.safeParse(body)
     const retryable = response.status === 408 || response.status === 429 || response.status >= 500
     if (parsedError.success) {
+      const message = Array.isArray(parsedError.data.message)
+        ? parsedError.data.message.join(", ")
+        : parsedError.data.message
       throw new ApiError(
-        parsedError.data.message,
+        message,
         response.status,
-        parsedError.data.code,
         retryable,
+        parsedError.data.code ?? "ERROR",
         parsedError.data.requestId,
       )
     }
     throw new ApiError(
       `Request gagal (${response.status})`,
       response.status,
-      "INVALID_RESPONSE",
       retryable,
+      "INVALID_RESPONSE",
     )
   }
 
   const parsed = responseSchema.safeParse(body)
   if (!parsed.success) {
+    console.warn("[http-client] Response validation failed:", parsed.error.flatten())
     throw new ApiError(
       "Respons backend tidak sesuai kontrak",
       response.status,
-      "INVALID_RESPONSE",
       false,
+      "INVALID_RESPONSE",
     )
   }
   return parsed.data

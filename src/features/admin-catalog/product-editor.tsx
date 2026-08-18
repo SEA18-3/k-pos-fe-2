@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import type { Product, ProductInput } from "@operator/contracts"
+import type { BackendProduct as Product, ProductInput } from "@/features/admin-catalog/admin-catalog-api"
 import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react"
 
 import { Button } from "@/shared/ui/components/button"
@@ -9,11 +9,7 @@ import { Input } from "@/shared/ui/components/input"
 const emptyProduct: ProductInput = {
   sku: "",
   name: "",
-  description: "",
-  category: "Kopi",
   price: 0,
-  lowStockThreshold: 5,
-  accent: "#06b6d4",
 }
 
 export function ProductEditor(props: {
@@ -30,11 +26,8 @@ export function ProductEditor(props: {
         ? {
             sku: props.product.sku,
             name: props.product.name,
-            description: props.product.description,
-            category: props.product.category,
-            price: props.product.price,
-            lowStockThreshold: props.product.lowStockThreshold,
-            accent: props.product.accent,
+            price: Number(props.product.price),
+            image_url: props.product.image_url ?? undefined,
           }
         : emptyProduct,
     )
@@ -78,50 +71,16 @@ export function ProductEditor(props: {
               required
             />
           </EditorField>
-          <EditorField label="Deskripsi">
+          <EditorField label="Harga (Rp)">
             <Input
-              value={draft.description}
-              onChange={(event) => field("description", event.target.value)}
+              type="number"
+              min={0}
+              step={1}
+              value={draft.price}
+              onChange={(event) => field("price", Number(event.target.value))}
+              required
             />
           </EditorField>
-          <div className="grid grid-cols-2 gap-2">
-            <EditorField label="Kategori">
-              <Input
-                value={draft.category}
-                onChange={(event) => field("category", event.target.value)}
-                required
-              />
-            </EditorField>
-            <EditorField label="Harga (Rp)">
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.price}
-                onChange={(event) => field("price", Number(event.target.value))}
-                required
-              />
-            </EditorField>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <EditorField label="Batas stok rendah">
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.lowStockThreshold}
-                onChange={(event) => field("lowStockThreshold", Number(event.target.value))}
-                required
-              />
-            </EditorField>
-            <EditorField label="Warna aksen">
-              <Input
-                type="color"
-                value={draft.accent}
-                onChange={(event) => field("accent", event.target.value)}
-              />
-            </EditorField>
-          </div>
           <p className="text-[10px] leading-4 text-muted-foreground">
             Stok tidak dapat diubah di sini. Gunakan inventory reconciliation agar koreksi tercatat
             di audit trail.

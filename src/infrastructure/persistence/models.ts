@@ -91,14 +91,14 @@ export type DeviceIdentity = {
 
 export type AuthSession = {
   token: string
+  refreshToken: string
   merchantId: string
   operator: {
     id: string
     name: string
-    role: "OPERATOR" | "ADMIN"
+    role: "OWNER" | "ADMIN" | "OPERATOR" | "ENTRY"
   }
   expiresAt: string
-  offlineLeaseExpiresAt: string
 }
 
 export type CartDraft = {

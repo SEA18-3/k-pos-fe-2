@@ -117,7 +117,7 @@ export default function App() {
             <Route
               path="/reconciliation"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <ReconciliationPage />
                 ) : (
                   <Navigate to="/" replace />
@@ -127,7 +127,7 @@ export default function App() {
             <Route
               path="/admin/users"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <AdminUsersPage />
                 ) : (
                   <Navigate to="/" replace />
@@ -137,7 +137,7 @@ export default function App() {
             <Route
               path="/admin/catalog"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <AdminCatalogPage />
                 ) : (
                   <Navigate to="/" replace />

@@ -22,9 +22,5 @@ export function isOnlineSessionValid(session: AuthSession, now = Date.now()) {
 }
 
 export function isOfflineCheckoutAllowed(session: AuthSession, now = Date.now()) {
-  return new Date(session.offlineLeaseExpiresAt).getTime() > now
-}
-
-export function offlineLeaseExpiresAt(authenticatedAt = Date.now()) {
-  return new Date(authenticatedAt + OFFLINE_LEASE_MS).toISOString()
+  return isOnlineSessionValid(session, now) // Fallback ke sesi online biasa karena offline_lease ditiadakan
 }

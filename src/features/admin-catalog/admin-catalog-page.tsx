@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import type { Product, ProductInput } from "@operator/contracts"
+import type { BackendProduct as Product, ProductInput } from "@/features/admin-catalog/admin-catalog-api"
 import { IconRefresh, IconSearch } from "@tabler/icons-react"
 
 import { ProductAdminList } from "@/features/admin-catalog/product-admin-list"
@@ -16,7 +16,7 @@ export function AdminCatalogPage() {
   const products = useMemo(
     () =>
       catalog.products.filter((product) =>
-        `${product.name} ${product.sku} ${product.category}`
+        `${product.name} ${product.sku}`
           .toLowerCase()
           .includes(query.toLowerCase()),
       ),
@@ -25,7 +25,7 @@ export function AdminCatalogPage() {
 
   async function save(input: ProductInput) {
     if (editing) {
-      const updated = await catalog.update(editing.id, input)
+      const updated = await catalog.update(editing.id_product, input)
       if (updated) setEditing(null)
       return Boolean(updated)
     }
@@ -54,14 +54,14 @@ export function AdminCatalogPage() {
             className="pl-8"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari produk, SKU, kategori…"
+            placeholder="Cari produk, SKU…"
           />
         </div>
       </div>
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-[330px_minmax(0,1fr)]">
         <ProductEditor
           product={editing}
-          busy={catalog.mutatingId === (editing?.id ?? "create")}
+          busy={catalog.mutatingId === (editing?.id_product ?? "create")}
           onCancelEdit={() => setEditing(null)}
           onSave={save}
         />

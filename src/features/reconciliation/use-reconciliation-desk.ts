@@ -4,17 +4,15 @@ import type {
   CorrectionRecord,
   CreateCorrectionRequest,
   InventoryDiscrepancy,
-  ResolveInventoryDiscrepancyRequest,
-} from "@operator/contracts"
+  ResolveConflictRequest,
+} from "@/features/reconciliation/reconciliation-api"
 import { toast } from "sonner"
 
 import { useCurrentSession } from "@/features/auth/session-queries"
 import {
   createCorrection,
   fetchBackendTransactions,
-  fetchCorrections,
-  fetchInventoryDiscrepancies,
-  resolveInventoryDiscrepancy,
+  resolveConflict,
 } from "@/features/reconciliation/reconciliation-api"
 
 export function useReconciliationDesk() {
@@ -25,17 +23,16 @@ export function useReconciliationDesk() {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    if (!session || session.operator.role !== "ADMIN") return
+    if (!session) return
     setLoading(true)
     try {
-      const [transactionData, correctionData, discrepancyData] = await Promise.all([
-        fetchBackendTransactions(session, true),
-        fetchCorrections(session),
-        fetchInventoryDiscrepancies(session),
-      ])
-      setTransactions(transactionData.transactions)
-      setCorrections(correctionData.corrections)
-      setDiscrepancies(discrepancyData.discrepancies)
+      // Ambil semua transaksi — frontend bisa filter di sisi client
+      const transactionData = await fetchBackendTransactions(session, { limit: 100 })
+      setTransactions(transactionData.data.data)
+      // fetchCorrections & fetchInventoryDiscrepancies belum ada endpoint backend
+      // TODO: Implementasikan saat endpoint tersedia
+      setCorrections([])
+      setDiscrepancies([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal memuat reconciliation desk")
     } finally {
@@ -58,11 +55,11 @@ export function useReconciliationDesk() {
     }
   }
 
-  async function resolve(id: string, resolution: ResolveInventoryDiscrepancyRequest) {
+  async function resolve(id: string, resolution: ResolveConflictRequest) {
     if (!session) return false
     try {
-      await resolveInventoryDiscrepancy(session, id, resolution)
-      toast.success("Discrepancy diselesaikan")
+      await resolveConflict(session, id, resolution)
+      toast.success("Konflik diselesaikan")
       await refresh()
       return true
     } catch (error) {
@@ -71,14 +68,16 @@ export function useReconciliationDesk() {
     }
   }
 
+  const conflictCount = useMemo(
+    () => transactions.filter((t) => t.sync_status === "SYNC_CONFLICT").length,
+    [transactions],
+  )
+
   return {
     transactions,
     corrections,
     discrepancies,
-    openDiscrepancyCount: useMemo(
-      () => discrepancies.filter((item) => item.status === "OPEN").length,
-      [discrepancies],
-    ),
+    openDiscrepancyCount: conflictCount,
     loading,
     refresh,
     correct,

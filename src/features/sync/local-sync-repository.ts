@@ -1,4 +1,4 @@
-import type { SyncResult } from "@operator/contracts"
+import type { SyncResult } from "@/infrastructure/api/api-client"
 
 import { database } from "@/infrastructure/persistence/database"
 import type {

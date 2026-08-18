@@ -3,8 +3,8 @@ import type {
   BackendTransaction,
   CreateCorrectionRequest,
   InventoryDiscrepancy,
-  ResolveInventoryDiscrepancyRequest,
-} from "@operator/contracts"
+  ResolveConflictRequest,
+} from "@/features/reconciliation/reconciliation-api"
 
 import { formatCurrency } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
@@ -18,30 +18,39 @@ import {
 } from "@/shared/ui/components/dialog"
 import { Input } from "@/shared/ui/components/input"
 
+/**
+ * Dialog untuk membuat koreksi transaksi CONFIRMED.
+ * Sesuai CreateCorrectionRequest: { reason, items, subtotal, total }
+ */
 export function CorrectionDialog(props: {
   transaction: BackendTransaction | null
   onClose: () => void
   onSubmit: (id: string, input: CreateCorrectionRequest) => Promise<boolean>
 }) {
   const [reason, setReason] = useState("")
-  const [adjustmentAmount, setAdjustmentAmount] = useState(0)
-  const [evidenceReference, setEvidenceReference] = useState("")
+
   useEffect(() => {
     if (!props.transaction) {
       setReason("")
-      setAdjustmentAmount(0)
-      setEvidenceReference("")
     }
   }, [props.transaction])
+
   const submit = async () => {
     if (!props.transaction) return
-    const saved = await props.onSubmit(props.transaction.id, {
+    // Untuk correction, kita re-submit item yang sama dengan alasan koreksi
+    // (UI sederhana: hanya ubah reason, items & total mengikuti data lama)
+    const tx = props.transaction
+    const saved = await props.onSubmit(tx.id_transaction, {
       reason,
-      adjustmentAmount,
-      evidenceReference: evidenceReference || undefined,
+      // Kirim items kosong agar server tahu hanya reason yang berubah
+      // Developer dapat memperluas UI ini untuk memilih item koreksi
+      items: [],
+      subtotal: Number(tx.subtotal),
+      total: Number(tx.total),
     })
     if (saved) props.onClose()
   }
+
   return (
     <Dialog open={Boolean(props.transaction)} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent>
@@ -55,8 +64,10 @@ export function CorrectionDialog(props: {
         {props.transaction && (
           <div className="grid gap-3">
             <div className="flex justify-between rounded-md bg-secondary p-3 text-xs">
-              <span>{props.transaction.invoiceNumber}</span>
-              <strong>{formatCurrency(props.transaction.total)}</strong>
+              <span className="font-mono text-muted-foreground">
+                {props.transaction.id_transaction}
+              </span>
+              <strong>{formatCurrency(Number(props.transaction.total))}</strong>
             </div>
             <Field label="Reason">
               <textarea
@@ -66,21 +77,6 @@ export function CorrectionDialog(props: {
                 placeholder="Contoh: pembayaran QRIS ternyata tidak masuk"
               />
             </Field>
-            <Field label="Adjustment amount">
-              <Input
-                type="number"
-                value={adjustmentAmount || ""}
-                onChange={(event) => setAdjustmentAmount(Number(event.target.value))}
-                placeholder="-22000"
-              />
-            </Field>
-            <Field label="Evidence reference">
-              <Input
-                value={evidenceReference}
-                onChange={(event) => setEvidenceReference(event.target.value)}
-                placeholder="Bank statement / ticket ID"
-              />
-            </Field>
           </div>
         )}
         <DialogFooter>
@@ -88,7 +84,7 @@ export function CorrectionDialog(props: {
             Batal
           </Button>
           <Button
-            disabled={reason.length < 8 || adjustmentAmount === 0}
+            disabled={reason.length < 8}
             onClick={() => void submit()}
           >
             Simpan correction
@@ -99,22 +95,29 @@ export function CorrectionDialog(props: {
   )
 }
 
+/**
+ * Dialog untuk resolve konflik inventory (placeholder — endpoint belum ada di backend).
+ */
 export function ResolutionDialog(props: {
   discrepancy: InventoryDiscrepancy | null
   onClose: () => void
-  onSubmit: (id: string, input: ResolveInventoryDiscrepancyRequest) => Promise<boolean>
+  onSubmit: (id: string, input: ResolveConflictRequest) => Promise<boolean>
 }) {
-  const [resolution, setResolution] = useState("")
-  const [adjustedStock, setAdjustedStock] = useState<number | undefined>()
+  const [notes, setNotes] = useState("")
+
   useEffect(() => {
-    setResolution("")
-    setAdjustedStock(props.discrepancy ? Math.max(0, props.discrepancy.projectedStock) : undefined)
+    setNotes("")
   }, [props.discrepancy])
+
   const submit = async () => {
     if (!props.discrepancy) return
-    const saved = await props.onSubmit(props.discrepancy.id, { resolution, adjustedStock })
+    const saved = await props.onSubmit(props.discrepancy.id, {
+      action: "CONFIRM",
+      notes,
+    })
     if (saved) props.onClose()
   }
+
   return (
     <Dialog open={Boolean(props.discrepancy)} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent>
@@ -125,26 +128,20 @@ export function ResolutionDialog(props: {
         <div className="grid gap-3">
           <Field label="Resolution note">
             <textarea
-              value={resolution}
-              onChange={(event) => setResolution(event.target.value)}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
               className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
             />
           </Field>
           <Field label="Adjusted stock">
-            <Input
-              type="number"
-              value={adjustedStock ?? ""}
-              onChange={(event) =>
-                setAdjustedStock(event.target.value === "" ? undefined : Number(event.target.value))
-              }
-            />
+            <Input type="number" placeholder="0" disabled />
           </Field>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={props.onClose}>
             Batal
           </Button>
-          <Button disabled={resolution.length < 8} onClick={() => void submit()}>
+          <Button disabled={notes.length < 8} onClick={() => void submit()}>
             Resolve
           </Button>
         </DialogFooter>
