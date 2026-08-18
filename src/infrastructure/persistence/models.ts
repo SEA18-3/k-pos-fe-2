@@ -18,8 +18,7 @@ export type Product = {
 
 export type PaymentMethod = "CASH" | "STATIC_QRIS" | "TRANSFER"
 export type PaymentVerificationType = "SYSTEM_VERIFIABLE" | "OPERATOR_ASSERTED"
-export type SyncStatus = "LOCAL_ONLY" | "SYNCING" | "SYNCED" | "FAILED"
-export type SettlementStatus = "PROVISIONAL" | "SETTLED"
+export type SyncStatus = "PENDING_SYNC" | "SYNCING" | "SYNCED" | "SYNC_FAILED" | "SYNC_CONFLICT"
 
 export type TransactionItem = {
   productId: string
@@ -47,7 +46,7 @@ export type LocalTransaction = {
   change?: number
   transactionStatus: "CONFIRMED" | "VOIDED"
   syncStatus: SyncStatus
-  settlementStatus: SettlementStatus
+  offlineUuid: string
   createdAt: string
   receivedAtBackend?: string
   retryCount: number

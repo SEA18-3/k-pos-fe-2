@@ -74,7 +74,7 @@ export function TransactionDetailPage() {
 }
 
 function lifecycleEvents(transaction: LocalTransaction): LifecycleEvent[] {
-  const settled = transaction.settlementStatus === "SETTLED"
+  const synced = transaction.syncStatus === "SYNCED"
   return [
     {
       label: "Dibuat di perangkat",
@@ -92,13 +92,13 @@ function lifecycleEvents(transaction: LocalTransaction): LifecycleEvent[] {
       description: transaction.receivedAtBackend
         ? formatTransactionDate(transaction.receivedAtBackend)
         : (transaction.lastSyncError ?? "Menunggu koneksi"),
-      done: settled,
-      failed: transaction.syncStatus === "FAILED",
+      done: synced,
+      failed: transaction.syncStatus === "SYNC_FAILED",
     },
     {
-      label: "Settled & immutable",
-      description: settled ? "Histori terkunci; koreksi membuat record baru" : "Menunggu backend",
-      done: settled,
+      label: "Synced & immutable",
+      description: synced ? "Histori terkunci; koreksi membuat record baru" : "Menunggu backend",
+      done: synced,
     },
   ]
 }

@@ -1,11 +1,9 @@
-import { healthResponseSchema, syncResponseSchema, type SyncResult } from "@operator/contracts"
+import { z } from "zod"
+
+import { healthResponseSchema } from "@operator/contracts"
 
 import { ApiError, API_URL, requestJson } from "@/infrastructure/api/http-client"
-import type {
-  AuthSession,
-  DeviceIdentity,
-  LocalTransaction,
-} from "@/infrastructure/persistence/models"
+import type { LocalTransaction } from "@/infrastructure/persistence/models"
 
 export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true"
 
@@ -13,61 +11,63 @@ export function probeBackend(signal?: AbortSignal) {
   return requestJson("/health", healthResponseSchema, { signal, cache: "no-store" })
 }
 
-function transactionPayload(transaction: LocalTransaction) {
+function toBackendPaymentMethod(method: LocalTransaction["paymentMethod"]) {
+  return method === "TRANSFER" ? "BANK_TRANSFER" : method
+}
+
+export function transactionPayload(transaction: LocalTransaction, deviceId: string) {
+  const method = toBackendPaymentMethod(transaction.paymentMethod)
   return {
-    transactionId: transaction.id,
-    invoiceNumber: transaction.invoiceNumber,
-    operatorId: transaction.operatorId,
-    transactionStatus: transaction.transactionStatus,
-    paymentMethod: transaction.paymentMethod,
-    paymentVerificationType: transaction.paymentVerificationType,
-    paymentReference: transaction.paymentReference,
+    offline_uuid: transaction.offlineUuid,
+    id_device: deviceId,
+    created_at_local: transaction.createdAt,
     subtotal: transaction.subtotal,
-    discount: transaction.discount,
-    tax: 0,
     total: transaction.total,
-    createdAtDevice: transaction.createdAt,
+    notes: null,
     items: transaction.items.map((item) => ({
-      productId: item.productId,
-      name: item.name,
+      id_product: item.productId,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
+      unit_price: item.unitPrice,
       subtotal: item.subtotal,
     })),
+    payment: {
+      method,
+      amount: transaction.total,
+      cash_received: transaction.amountReceived ?? null,
+      change_amount: transaction.change ?? null,
+      qris_code: method === "STATIC_QRIS" ? (transaction.paymentReference ?? null) : null,
+      transfer_ref: method === "BANK_TRANSFER" ? (transaction.paymentReference ?? null) : null,
+    },
   }
 }
 
+const backendSyncAckSchema = z.object({
+  message: z.string(),
+  data: z.object({
+    accepted: z.number(),
+    queued_at: z.string(),
+  }),
+})
+
+export type BackendSyncAck = { accepted: number; queuedAt: string }
+
 export async function sendTransactionBatch(
-  session: AuthSession,
-  device: DeviceIdentity,
-  batchId: string,
+  session: { token: string },
+  device: { id: string },
+  _batchId: string,
   transactions: LocalTransaction[],
-): Promise<SyncResult[]> {
+): Promise<BackendSyncAck> {
   if (DEMO_MODE) {
     await new Promise((resolve) => setTimeout(resolve, 350))
-    return transactions.map((transaction) => ({
-      transactionId: transaction.id,
-      status: transaction.receivedAtBackend ? "ALREADY_PROCESSED" : "ACCEPTED",
-      settlementStatus: "SETTLED",
-      receivedAtBackend: transaction.receivedAtBackend ?? new Date().toISOString(),
-    }))
+    return { accepted: transactions.length, queuedAt: new Date().toISOString() }
   }
   const response = await requestJson(
-    "/v1/sync/transactions",
-    syncResponseSchema,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        merchantId: session.merchantId,
-        deviceId: device.id,
-        batchId,
-        transactions: transactions.map(transactionPayload),
-      }),
-    },
+    "/api/v1/sync",
+    backendSyncAckSchema,
+    { method: "POST", body: JSON.stringify({ transactions: transactions.map((t) => transactionPayload(t, device.id)) }) },
     session.token,
   )
-  return response.results
+  return { accepted: response.data.accepted, queuedAt: response.data.queued_at }
 }
 
 export { ApiError, API_URL }

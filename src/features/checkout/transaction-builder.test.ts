@@ -30,10 +30,10 @@ describe("transaction builder", () => {
       subtotal: 44_000,
       total: 44_000,
       change: 6_000,
-      syncStatus: "LOCAL_ONLY",
-      settlementStatus: "PROVISIONAL",
+      syncStatus: "PENDING_SYNC",
       items: [{ productId: "prd-aren", unitPrice: 22_000, quantity: 2, subtotal: 44_000 }],
     })
+    expect(sale.offlineUuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
   })
 
   it("uses the random UUID tail so concurrent devices do not share invoice numbers", () => {

@@ -94,24 +94,24 @@ export function TransactionFinancialDetails({ transaction }: { transaction: Loca
 }
 
 function IntegrityNotice({ transaction }: { transaction: LocalTransaction }) {
-  const settled = transaction.settlementStatus === "SETTLED"
+  const synced = transaction.syncStatus === "SYNCED"
   return (
     <div
       className={cn(
         "flex items-start gap-3 rounded-lg border p-3",
-        settled ? "border-emerald-500/15 bg-emerald-500/5" : "border-amber-500/15 bg-amber-500/5",
+        synced ? "border-emerald-500/15 bg-emerald-500/5" : "border-amber-500/15 bg-amber-500/5",
       )}
     >
       <IconLock
-        className={cn("mt-0.5 size-4 shrink-0", settled ? "text-emerald-400" : "text-amber-300")}
+        className={cn("mt-0.5 size-4 shrink-0", synced ? "text-emerald-400" : "text-amber-300")}
       />
       <div>
         <div className="text-xs font-semibold">
-          {settled ? "Transaksi immutable" : "Masih provisional"}
+          {synced ? "Transaksi immutable" : "Belum tersinkron"}
         </div>
         <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-          {settled
-            ? "Operator tidak dapat mengubah transaksi settled. Koreksi dibuat Admin sebagai audit record baru."
+          {synced
+            ? "Operator tidak dapat mengubah transaksi yang sudah sinkron. Koreksi dibuat Admin sebagai audit record baru."
             : "Transaksi aman di perangkat, tetapi belum final sampai backend menerimanya."}
         </p>
       </div>

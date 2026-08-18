@@ -4,7 +4,7 @@ import { Link } from "react-router-dom"
 import type { LocalTransaction } from "@/infrastructure/persistence/models"
 import { formatTransactionDate } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
-import { SettlementBadge, SyncBadge } from "@/shared/ui/status-badge"
+import { SyncBadge } from "@/shared/ui/status-badge"
 
 export function TransactionDetailHeader(props: {
   transaction: LocalTransaction
@@ -25,7 +25,6 @@ export function TransactionDetailHeader(props: {
             <h1 className="text-lg font-semibold tracking-[-0.03em]">
               {transaction.invoiceNumber}
             </h1>
-            <SettlementBadge status={transaction.settlementStatus} />
             <SyncBadge status={transaction.syncStatus} />
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -40,13 +39,13 @@ export function TransactionDetailHeader(props: {
         <Button variant="outline">
           <IconDownload /> Unduh
         </Button>
-        {transaction.settlementStatus === "PROVISIONAL" &&
+        {(transaction.syncStatus === "PENDING_SYNC" || transaction.syncStatus === "SYNCING") &&
           transaction.transactionStatus !== "VOIDED" && (
             <Button variant="destructive" onClick={props.onVoid}>
               <IconBan /> Void
             </Button>
           )}
-        {transaction.syncStatus === "FAILED" && (
+        {transaction.syncStatus === "SYNC_FAILED" && (
           <Button onClick={props.onRetry}>
             <IconRefresh /> Retry sync
           </Button>
