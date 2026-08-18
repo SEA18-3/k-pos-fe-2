@@ -1,4 +1,4 @@
-import type { BackendTransaction } from "@/features/reconciliation/reconciliation-api"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 import {
   IconArrowDownRight,
   IconCheck,
@@ -12,37 +12,36 @@ import { Button } from "@/shared/ui/components/button"
 import { Card } from "@/shared/ui/components/card"
 
 export function ReconciliationMetrics(props: {
-  transactions: number
-  corrections: number
-  open: number
+  openCases: number
+  resolvedCases: number
+  total: number
 }) {
   return (
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
-      <Metric label="Operator-asserted" value={props.transactions} />
-      <Metric label="Correction records" value={props.corrections} primary />
-      <Metric label="Sync conflicts" value={props.open} warning={props.open > 0} />
+      <Metric label="Total Dispute" value={props.total} />
+      <Metric label="Kasus Aktif" value={props.openCases} warning={props.openCases > 0} />
+      <Metric label="Diselesaikan" value={props.resolvedCases} primary />
     </div>
   )
 }
 
 export function PaymentRiskPanel(props: {
-  transactions: BackendTransaction[]
-  onCorrect: (transaction: BackendTransaction) => void
-  onResolve: (transaction: BackendTransaction) => void
+  reconciliations: ReconciliationRecord[]
+  onResolve: (record: ReconciliationRecord) => void
 }) {
-  if (props.transactions.length === 0)
+  if (props.reconciliations.length === 0)
     return (
       <EmptyState
         icon={IconClipboardCheck}
-        title="Belum ada payment risk"
-        copy="Transaksi QRIS/Transfer yang sudah masuk backend akan muncul di sini."
+        title="Belum ada kasus dispute"
+        copy="Kasus rekonsiliasi pembayaran yang dibuka akan muncul di sini."
       />
     )
   return (
     <div className="grid gap-3">
-      {props.transactions.map((transaction) => (
+      {props.reconciliations.map((record) => (
         <Card
-          key={transaction.id_transaction}
+          key={record.id_reconciliation}
           className="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
         >
           <div className="flex items-center gap-3">
@@ -51,31 +50,27 @@ export function PaymentRiskPanel(props: {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold">{transaction.id_transaction}</span>
-                {transaction.sync_status === "SYNC_CONFLICT" && (
-                  <Badge variant="warning">Sync conflict</Badge>
+                <span className="text-xs font-semibold">{record.id_payment}</span>
+                {record.status === "OPEN" ? (
+                  <Badge variant="warning">OPEN</Badge>
+                ) : (
+                  <Badge variant={record.status === "RESOLVED_VALID" ? "default" : "destructive"}>
+                    {record.status}
+                  </Badge>
                 )}
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                {transaction.payment
-                  ? (paymentLabels as Record<string, string>)[transaction.payment.method] ??
-                    transaction.payment.method
-                  : "—"}{" "}
-                · {formatTransactionDate(transaction.created_at_local ?? transaction.created_at)}
+                {record.reason} ?" Dibuka oleh {record.openedByUser?.full_name ?? record.opened_by} pada {formatTransactionDate(record.created_at)}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <strong className="text-sm tabular-nums">
-              {formatCurrency(Number(transaction.total))}
+              {formatCurrency(Number(record.payment?.amount ?? 0))}
             </strong>
-            {transaction.sync_status === "SYNC_CONFLICT" ? (
-              <Button size="sm" variant="destructive" onClick={() => props.onResolve(transaction)}>
+            {record.status === "OPEN" && (
+              <Button size="sm" onClick={() => props.onResolve(record)}>
                 Resolve
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => props.onCorrect(transaction)}>
-                Buat correction
               </Button>
             )}
           </div>
@@ -131,3 +126,4 @@ function EmptyState({
     </div>
   )
 }
+

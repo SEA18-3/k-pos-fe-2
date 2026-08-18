@@ -10,6 +10,8 @@ export function TransactionDetailHeader(props: {
   transaction: LocalTransaction
   onVoid: () => void
   onRetry: () => void
+  onEdit?: () => void
+  onDispute?: () => void
 }) {
   const transaction = props.transaction
   return (
@@ -49,6 +51,16 @@ export function TransactionDetailHeader(props: {
           <Button onClick={props.onRetry}>
             <IconRefresh /> Retry sync
           </Button>
+        )}
+        {transaction.syncStatus === "SYNCED" && transaction.transactionStatus !== "VOIDED" && (
+          <>
+            <Button variant="outline" onClick={props.onEdit}>
+              Edit Transaksi
+            </Button>
+            <Button variant="destructive" onClick={props.onDispute}>
+              Buka Kasus (Dispute)
+            </Button>
+          </>
         )}
       </div>
     </div>

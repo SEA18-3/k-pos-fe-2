@@ -1,11 +1,8 @@
 import { useState } from "react"
-import type { BackendTransaction, InventoryDiscrepancy } from "@/features/reconciliation/reconciliation-api"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 import { IconRefresh } from "@tabler/icons-react"
 
-import {
-  CorrectionDialog,
-  ResolutionDialog,
-} from "@/features/reconciliation/reconciliation-dialogs"
+import { ResolutionDialog } from "@/features/reconciliation/reconciliation-dialogs"
 import {
   PaymentRiskPanel,
   ReconciliationMetrics,
@@ -16,13 +13,16 @@ import { PageHeader } from "@/shared/ui/page-header"
 
 export function ReconciliationPage() {
   const data = useReconciliationDesk()
-  const [transaction, setTransaction] = useState<BackendTransaction | null>(null)
-  const [conflictTx, setConflictTx] = useState<BackendTransaction | null>(null)
+  const [conflictTx, setConflictTx] = useState<ReconciliationRecord | null>(null)
+  
+  const openCases = data.reconciliations.filter(r => r.status === "OPEN").length
+  const resolvedCases = data.reconciliations.filter(r => r.status !== "OPEN").length
+
   return (
     <div>
       <PageHeader
-        title="Reconciliation desk"
-        description="Koreksi pembayaran tanpa pernah mengubah histori transaksi asli."
+        title="Reconciliation Desk"
+        description="Manajemen kasus perselisihan pembayaran (dispute) dari transaksi kasir."
         actions={
           <Button variant="outline" onClick={() => void data.refresh()} disabled={data.loading}>
             <IconRefresh className={data.loading ? "animate-spin" : ""} /> Refresh
@@ -30,27 +30,22 @@ export function ReconciliationPage() {
         }
       />
       <ReconciliationMetrics
-        transactions={data.transactions.length}
-        corrections={data.corrections.length}
-        open={data.openDiscrepancyCount}
+        openCases={openCases}
+        resolvedCases={resolvedCases}
+        total={data.reconciliations.length}
       />
       <div className="p-4 sm:p-6">
         <PaymentRiskPanel
-          transactions={data.transactions}
-          onCorrect={setTransaction}
+          reconciliations={data.reconciliations}
           onResolve={setConflictTx}
         />
       </div>
-      <CorrectionDialog
-        transaction={transaction}
-        onClose={() => setTransaction(null)}
-        onSubmit={data.correct}
-      />
       <ResolutionDialog
-        transaction={conflictTx}
+        record={conflictTx}
         onClose={() => setConflictTx(null)}
         onSubmit={data.resolve}
       />
     </div>
   )
 }
+

@@ -13,6 +13,7 @@ import {
 } from "@/features/transactions/transaction-lifecycle"
 import { useLocalTransaction } from "@/features/transactions/transaction-queries"
 import { VoidTransactionDialog } from "@/features/transactions/void-transaction-dialog"
+import { TransactionCorrectionDialog, OpenDisputeDialog } from "@/features/transactions/transaction-dialogs"
 import type { LocalTransaction } from "@/infrastructure/persistence/models"
 import { formatTransactionDate, paymentLabels } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
@@ -22,6 +23,8 @@ export function TransactionDetailPage() {
   const transaction = useLocalTransaction(id)
   const connection = useUiStore((state) => state.connection)
   const [voidOpen, setVoidOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
+  const [disputeOpen, setDisputeOpen] = useState(false)
 
   if (transaction === undefined) return <LoadingTransaction />
   if (!transaction) return <MissingTransaction />
@@ -58,6 +61,8 @@ export function TransactionDetailPage() {
         transaction={transaction}
         onVoid={() => setVoidOpen(true)}
         onRetry={() => void retry()}
+        onEdit={() => setCorrectionOpen(true)}
+        onDispute={() => setDisputeOpen(true)}
       />
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <TransactionFinancialDetails transaction={transaction} />
@@ -68,6 +73,16 @@ export function TransactionDetailPage() {
         transaction={transaction}
         onOpenChange={setVoidOpen}
         onConfirm={() => void voidSale()}
+      />
+      <TransactionCorrectionDialog
+        open={correctionOpen}
+        transaction={transaction}
+        onOpenChange={setCorrectionOpen}
+      />
+      <OpenDisputeDialog
+        open={disputeOpen}
+        transaction={transaction}
+        onOpenChange={setDisputeOpen}
       />
     </div>
   )

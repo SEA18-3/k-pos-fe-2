@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react"
-import type {
-  BackendTransaction,
-  CreateCorrectionRequest,
-  InventoryDiscrepancy,
-  ResolveConflictRequest,
-} from "@/features/reconciliation/reconciliation-api"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 
-import { formatCurrency } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
 import {
   Dialog,
@@ -16,134 +10,66 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/components/dialog"
-import { Input } from "@/shared/ui/components/input"
 
 /**
- * Dialog untuk membuat koreksi transaksi CONFIRMED.
- * Sesuai CreateCorrectionRequest: { reason, items, subtotal, total }
- */
-export function CorrectionDialog(props: {
-  transaction: BackendTransaction | null
-  onClose: () => void
-  onSubmit: (id: string, input: CreateCorrectionRequest) => Promise<boolean>
-}) {
-  const [reason, setReason] = useState("")
-
-  useEffect(() => {
-    if (!props.transaction) {
-      setReason("")
-    }
-  }, [props.transaction])
-
-  const submit = async () => {
-    if (!props.transaction) return
-    // Untuk correction, kita re-submit item yang sama dengan alasan koreksi
-    // (UI sederhana: hanya ubah reason, items & total mengikuti data lama)
-    const tx = props.transaction
-    const saved = await props.onSubmit(tx.id_transaction, {
-      reason,
-      // Kirim items kosong agar server tahu hanya reason yang berubah
-      // Developer dapat memperluas UI ini untuk memilih item koreksi
-      items: [],
-      subtotal: Number(tx.subtotal),
-      total: Number(tx.total),
-    })
-    if (saved) props.onClose()
-  }
-
-  return (
-    <Dialog open={Boolean(props.transaction)} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Append payment correction</DialogTitle>
-          <DialogDescription>
-            Original transaction tetap settled dan immutable. Adjustment ini menjadi record audit
-            baru.
-          </DialogDescription>
-        </DialogHeader>
-        {props.transaction && (
-          <div className="grid gap-3">
-            <div className="flex justify-between rounded-md bg-secondary p-3 text-xs">
-              <span className="font-mono text-muted-foreground">
-                {props.transaction.id_transaction}
-              </span>
-              <strong>{formatCurrency(Number(props.transaction.total))}</strong>
-            </div>
-            <Field label="Reason">
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
-                placeholder="Contoh: pembayaran QRIS ternyata tidak masuk"
-              />
-            </Field>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={props.onClose}>
-            Batal
-          </Button>
-          <Button
-            disabled={reason.length < 8}
-            onClick={() => void submit()}
-          >
-            Simpan correction
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/**
- * Dialog untuk resolve konflik sinkronisasi (SYNC_CONFLICT).
+ * Dialog untuk menyelesaikan kasus perselisihan (Reconciliation Dispute).
  */
 export function ResolutionDialog(props: {
-  transaction: BackendTransaction | null
+  record: ReconciliationRecord | null
   onClose: () => void
-  onSubmit: (id: string, input: ResolveConflictRequest) => Promise<boolean>
+  onSubmit: (id: string, status: "RESOLVED_VALID" | "RESOLVED_INVALID", resolution: string) => Promise<void>
 }) {
-  const [notes, setNotes] = useState("")
+  const [resolution, setResolution] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    setNotes("")
-  }, [props.transaction])
+    setResolution("")
+  }, [props.record])
 
-  const submit = async (action: "CONFIRM" | "VOID") => {
-    if (!props.transaction) return
-    const saved = await props.onSubmit(props.transaction.id_transaction, {
-      action,
-      notes,
-    })
-    if (saved) props.onClose()
+  const submit = async (status: "RESOLVED_VALID" | "RESOLVED_INVALID") => {
+    if (!props.record) return
+    setSubmitting(true)
+    try {
+      await props.onSubmit(props.record.id_reconciliation, status, resolution)
+      props.onClose()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
-    <Dialog open={Boolean(props.transaction)} onOpenChange={(open) => !open && props.onClose()}>
+    <Dialog open={Boolean(props.record)} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Resolve Sync Conflict</DialogTitle>
-          <DialogDescription>Selesaikan konflik transaksi ini secara manual.</DialogDescription>
+          <DialogTitle>Selesaikan Dispute Pembayaran</DialogTitle>
+          <DialogDescription>
+            Pilih hasil dari investigasi kasus rekonsiliasi pembayaran ini.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Field label="Resolution note">
+          <Field label="Catatan Resolusi (Wajib)">
             <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              value={resolution}
+              onChange={(event) => setResolution(event.target.value)}
               className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
-              placeholder="Alasan penyelesaian..."
+              placeholder="Jelaskan alasan penyelesaian kasus ini..."
+              disabled={submitting}
             />
           </Field>
+          <div className="text-xs text-muted-foreground rounded-md bg-secondary p-3">
+            <p className="mb-2"><strong>INVALID:</strong> Uang tidak masuk, transaksi akan di-VOID untuk dikeluarkan dari laporan, tapi stok TIDAK dikembalikan.</p>
+            <p><strong>VALID:</strong> Uang akhirnya masuk atau kasus ditutup, transaksi tetap CONFIRMED.</p>
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={props.onClose}>
+          <Button variant="outline" onClick={props.onClose} disabled={submitting}>
             Batal
           </Button>
-          <Button variant="destructive" disabled={notes.length < 8} onClick={() => void submit("VOID")}>
-            Void
+          <Button variant="destructive" disabled={resolution.length < 8 || submitting} onClick={() => void submit("RESOLVED_INVALID")}>
+            Tandai INVALID
           </Button>
-          <Button disabled={notes.length < 8} onClick={() => void submit("CONFIRM")}>
-            Confirm
+          <Button disabled={resolution.length < 8 || submitting} onClick={() => void submit("RESOLVED_VALID")}>
+            Tandai VALID
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -159,3 +85,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   )
 }
+
