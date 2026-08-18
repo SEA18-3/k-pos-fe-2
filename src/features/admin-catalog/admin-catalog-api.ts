@@ -90,12 +90,22 @@ export function fetchAdminProducts(session: AuthSession) {
   return requestJson("/api/v1/products", productListResponseSchema, {}, session.token)
 }
 
+function toFormData(data: Record<string, any>) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined && value !== null) {
+      form.append(key, value instanceof File ? value : String(value))
+    }
+  }
+  return form
+}
+
 /** Buat produk baru + otomatis buat record Inventory dengan current_stock=0 */
 export function createAdminProduct(session: AuthSession, input: ProductInput) {
   return requestJson(
     "/api/v1/products",
     productMutationResponseSchema,
-    { method: "POST", body: JSON.stringify(input) },
+    { method: "POST", body: toFormData(input) },
     session.token,
   )
 }
@@ -105,7 +115,7 @@ export function updateAdminProduct(session: AuthSession, productId: string, patc
   return requestJson(
     `/api/v1/products/${encodeURIComponent(productId)}`,
     productMutationResponseSchema,
-    { method: "PATCH", body: JSON.stringify(patch) },
+    { method: "PATCH", body: toFormData(patch) },
     session.token,
   )
 }
