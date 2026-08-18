@@ -1,5 +1,5 @@
 import type { BackendProduct as Product } from "@/features/admin-catalog/admin-catalog-api"
-import { IconArchive, IconEdit, IconRestore } from "@tabler/icons-react"
+import { IconArchive, IconEdit, IconRestore, IconPackage } from "@tabler/icons-react"
 
 import { ProductThumbnail } from "@/features/catalog/product-thumbnail"
 import { formatCurrency } from "@/shared/lib/format"
@@ -11,6 +11,7 @@ export function ProductAdminList(props: {
   products: Product[]
   mutatingId: string | null
   onEdit: (product: Product) => void
+  onAdjustStock: (product: Product) => void
   onArchivedChange: (product: Product, archived: boolean) => Promise<unknown>
 }) {
   return (
@@ -63,14 +64,23 @@ export function ProductAdminList(props: {
               <IconEdit /> Edit
             </Button>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="flex-1"
               disabled={props.mutatingId === product.id_product}
-              onClick={() => void props.onArchivedChange(product, product.is_active)}
+              onClick={() => props.onAdjustStock(product)}
             >
-              {product.is_active ? <IconArchive /> : <IconRestore />}{" "}
-              {product.is_active ? "Arsipkan" : "Pulihkan"}
+              <IconPackage /> Atur Stok
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-none px-2 text-muted-foreground"
+              disabled={props.mutatingId === product.id_product}
+              onClick={() => void props.onArchivedChange(product, product.is_active)}
+              title={product.is_active ? "Arsipkan" : "Pulihkan"}
+            >
+              {product.is_active ? <IconArchive /> : <IconRestore />}
             </Button>
           </div>
         </Card>

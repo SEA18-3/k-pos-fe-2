@@ -3,6 +3,7 @@ import type { BackendProduct as Product, ProductInput, ProductPatch } from "@/fe
 import { toast } from "sonner"
 
 import {
+  adjustAdminProductStock,
   createAdminProduct,
   fetchAdminProducts,
   setAdminProductArchived,
@@ -75,6 +76,14 @@ export function useAdminCatalog() {
             product.id_product,
             () => setAdminProductArchived(session, product.id_product, archived) as any,
             archived ? "Produk diarsipkan" : "Produk dipulihkan",
+          )
+        : Promise.resolve(null),
+    adjustStock: (id: string, quantity: number, notes?: string) =>
+      session
+        ? run(
+            id,
+            () => adjustAdminProductStock(session, id, quantity, notes) as any,
+            "Stok berhasil disesuaikan",
           )
         : Promise.resolve(null),
   }

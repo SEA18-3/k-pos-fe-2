@@ -148,3 +148,22 @@ export function setAdminProductArchived(
     )
   }
 }
+
+/** Sesuaikan stok produk (Inventory Reconciliation) */
+export function adjustAdminProductStock(
+  session: AuthSession,
+  productId: string,
+  quantity: number,
+  notes?: string,
+) {
+  return requestJson(
+    `/api/v1/products/${encodeURIComponent(productId)}/stock`,
+    productMutationResponseSchema, // Backend mengembalikan data produk beserta inventory terbaru
+    { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity, notes }) 
+    },
+    session.token,
+  )
+}

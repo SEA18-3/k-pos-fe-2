@@ -4,6 +4,7 @@ import { IconRefresh, IconSearch } from "@tabler/icons-react"
 
 import { ProductAdminList } from "@/features/admin-catalog/product-admin-list"
 import { ProductEditor } from "@/features/admin-catalog/product-editor"
+import { StockAdjustmentDialog } from "@/features/admin-catalog/components/stock-adjustment-dialog"
 import { useAdminCatalog } from "@/features/admin-catalog/use-admin-catalog"
 import { Button } from "@/shared/ui/components/button"
 import { Input } from "@/shared/ui/components/input"
@@ -12,6 +13,7 @@ import { PageHeader } from "@/shared/ui/page-header"
 export function AdminCatalogPage() {
   const catalog = useAdminCatalog()
   const [editing, setEditing] = useState<Product | null>(null)
+  const [adjustingStock, setAdjustingStock] = useState<Product | null>(null)
   const [query, setQuery] = useState("")
   const products = useMemo(
     () =>
@@ -69,9 +71,15 @@ export function AdminCatalogPage() {
           products={products}
           mutatingId={catalog.mutatingId}
           onEdit={setEditing}
+          onAdjustStock={setAdjustingStock}
           onArchivedChange={catalog.setArchived}
         />
       </div>
+      <StockAdjustmentDialog
+        product={adjustingStock}
+        onClose={() => setAdjustingStock(null)}
+        onSubmit={catalog.adjustStock}
+      />
     </div>
   )
 }
