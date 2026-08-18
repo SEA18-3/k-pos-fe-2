@@ -94,7 +94,11 @@ function toFormData(data: Record<string, any>) {
   const form = new FormData()
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined && value !== null) {
-      form.append(key, value instanceof File ? value : String(value))
+      if (value instanceof Blob) {
+        form.append(key, value)
+      } else {
+        form.append(key, String(value))
+      }
     }
   }
   return form
