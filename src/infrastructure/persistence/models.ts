@@ -96,7 +96,7 @@ export type AuthSession = {
   operator: {
     id: string
     name: string
-    role: "OWNER" | "ADMIN" | "OPERATOR" | "ENTRY"
+    role: "OWNER" | "OPERATOR" | "ENTRY"
   }
   expiresAt: string
 }
