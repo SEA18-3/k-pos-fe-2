@@ -3,6 +3,12 @@ import { z } from "zod"
 import { requestJson } from "@/infrastructure/api/http-client"
 import type { BackendProduct } from "@/infrastructure/api/mappers"
 
+const backendInventorySchema = z.object({
+  current_stock: z.number(),
+  reserved: z.number().optional(),
+  last_updated: z.string().optional(),
+})
+
 export const backendProductSchema = z.object({
   id_product: z.string(),
   id_merchant: z.string().optional(),
@@ -13,6 +19,7 @@ export const backendProductSchema = z.object({
   is_active: z.boolean(),
   created_at: z.string(),
   updated_at: z.string().optional(),
+  inventory: backendInventorySchema.optional().nullable(),
 })
 
 export const backendProductListResponseSchema = z.object({
@@ -56,5 +63,6 @@ export async function fetchCatalogProducts(
     is_active: item.is_active,
     created_at: item.created_at,
     updated_at: item.updated_at ?? item.created_at,
+    inventory: item.inventory ?? undefined,
   }))
 }
