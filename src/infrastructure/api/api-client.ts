@@ -30,7 +30,6 @@ export function transactionPayload(transaction: LocalTransaction, deviceId: stri
   const method = toBackendPaymentMethod(transaction.paymentMethod)
   return {
     offline_uuid: transaction.offlineUuid,
-    id_device: deviceId,
     created_at_local: transaction.createdAt,
     subtotal: transaction.subtotal,
     total: transaction.total,
@@ -40,6 +39,9 @@ export function transactionPayload(transaction: LocalTransaction, deviceId: stri
       quantity: item.quantity,
       unit_price: item.unitPrice,
       subtotal: item.subtotal,
+      product_name: item.name,
+      sku_snapshot: (item as any).sku ?? item.productId,
+      catalog_version: (item as any).catalogVersion ?? transaction.createdAt,
     })),
     payment: {
       method,
