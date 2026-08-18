@@ -101,7 +101,7 @@ export async function sendTransactionBatch(
 
 export type BackendSyncStatus = {
   offline_uuid: string
-  status: "CONFLICT" | "SYNCED" | "FAILED" | "PENDING"
+  status: "CONFLICT" | "SYNCED" | "FAILED" | "PENDING" | "UNKNOWN"
   transaction_id: string | null
   error: string | null
 }
@@ -109,14 +109,16 @@ export type BackendSyncStatus = {
 const syncStatusResponseSchema = z.object({
   status: z.string().optional(),
   message: z.string().optional(),
-  data: z.array(
-    z.object({
-      offline_uuid: z.string(),
-      status: z.enum(["CONFLICT", "SYNCED", "FAILED", "PENDING"]),
-      transaction_id: z.string().nullable(),
-      error: z.string().nullable(),
-    })
-  ),
+  data: z.object({
+    data: z.array(
+      z.object({
+        offline_uuid: z.string(),
+        status: z.enum(["CONFLICT", "SYNCED", "FAILED", "PENDING", "UNKNOWN"]),
+        transaction_id: z.string().nullable(),
+        error: z.string().nullable(),
+      })
+    ),
+  }),
 })
 
 export async function fetchSyncStatus(
@@ -130,7 +132,7 @@ export async function fetchSyncStatus(
     { method: "GET" },
     session.token,
   )
-  return response.data
+  return response.data.data
 }
 
 export { ApiError, API_URL }
