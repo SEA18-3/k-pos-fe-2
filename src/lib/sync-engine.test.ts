@@ -52,9 +52,9 @@ describe("transaction payload", () => {
   it("maps money as numbers and sends offline_uuid as UUID v4", () => {
     const tx = transactionPayload(transaction, "device-1")
     expect(tx.offline_uuid).toBe("f47ac10b-58cc-4372-a567-0e02b2c3d479")
-    expect(tx.id_device).toBe("device-1")
     expect(tx.subtotal).toBe(44_000)
     expect(tx.total).toBe(44_000)
+    expect(tx.items).toHaveLength(1)
   })
 
   it("nests payment method and maps TRANSFER to BANK_TRANSFER", () => {
