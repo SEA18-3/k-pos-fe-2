@@ -76,7 +76,7 @@ export type ProductInput = {
   name: string
   sku: string
   price: number
-  image_url?: string
+  image?: File | null
 }
 
 export type ProductPatch = Partial<ProductInput>

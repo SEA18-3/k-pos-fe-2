@@ -27,7 +27,6 @@ export function ProductEditor(props: {
             sku: props.product.sku,
             name: props.product.name,
             price: Number(props.product.price),
-            image_url: props.product.image_url ?? undefined,
           }
         : emptyProduct,
     )
@@ -80,6 +79,21 @@ export function ProductEditor(props: {
               onChange={(event) => field("price", Number(event.target.value))}
               required
             />
+          </EditorField>
+          <EditorField label="Gambar Produk">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                field("image", file ?? null)
+              }}
+            />
+            {props.product?.image_url && !draft.image && (
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Gambar saat ini sudah tersimpan. Unggah baru untuk mengganti.
+              </div>
+            )}
           </EditorField>
           <p className="text-[10px] leading-4 text-muted-foreground">
             Stok tidak dapat diubah di sini. Gunakan inventory reconciliation agar koreksi tercatat
