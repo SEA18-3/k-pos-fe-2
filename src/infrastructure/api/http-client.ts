@@ -8,6 +8,46 @@
 
 import { apiErrorResponseSchema } from "@/lib/contracts"
 import { z, type ZodType } from "zod"
+import { getAuthSession, saveAuthSession, clearAuthSession } from "@/infrastructure/persistence/session-repository"
+
+let refreshPromise: Promise<string | null> | null = null
+
+async function attemptRefresh() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const session = await getAuthSession()
+      if (!session) return null
+
+      try {
+        const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+          method: "POST",
+          headers: session.refreshToken ? { "x-refresh-token": session.refreshToken } : {},
+          credentials: "include",
+        })
+
+        if (!res.ok) {
+          await clearAuthSession()
+          // Optional: force reload to login screen
+          window.location.reload()
+          return null
+        }
+
+        const data = await res.json()
+        session.token = data.data.access_token
+        session.refreshToken = data.data.refresh_token ?? session.refreshToken
+        session.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString()
+        
+        await saveAuthSession(session)
+        return session.token
+      } catch {
+        return null
+      }
+    })().finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
 
 export function resolveApiUrl(configuredUrl: string | undefined, isDevelopment: boolean) {
   const normalizedUrl = configuredUrl?.trim().replace(/\/+$/, "")
@@ -53,6 +93,19 @@ export async function requestJson<TSchema extends ZodType>(
       headers,
       credentials: init.credentials ?? "include",
     })
+
+    // Auto-refresh token if 401 Unauthorized
+    if (response.status === 401 && token) {
+      const newToken = await attemptRefresh()
+      if (newToken) {
+        headers.set("authorization", `Bearer ${newToken}`)
+        response = await fetch(`${API_URL}${path}`, {
+          ...init,
+          headers,
+          credentials: init.credentials ?? "include",
+        })
+      }
+    }
   } catch {
     throw new ApiError("Backend tidak dapat dijangkau", 0, true, "NETWORK_UNREACHABLE")
   }

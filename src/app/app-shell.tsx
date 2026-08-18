@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconTags,
   IconWifiOff,
+  IconLogout,
 } from "@tabler/icons-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { toast } from "sonner"
@@ -20,6 +21,8 @@ import { toast } from "sonner"
 import { ConnectionBadge } from "@/shared/ui/status-badge"
 import { Button } from "@/shared/ui/components/button"
 import { useCurrentSession, useMerchantProfile } from "@/features/auth/session-queries"
+import { logoutOnline } from "@/features/auth/auth-api"
+import { clearAuthSession } from "@/infrastructure/persistence/session-repository"
 import { useSyncOverview } from "@/features/sync/sync-queries"
 import { fromNow } from "@/shared/lib/format"
 import { refreshConnectivity, syncService } from "@/features/sync/sync-runtime"
@@ -141,6 +144,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </Button>
             </NavLink>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => void handleLogout()} 
+              className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+              title="Logout"
+            >
+              <IconLogout className="size-4" />
+              <span className="hidden sm:inline ml-1">Logout</span>
+            </Button>
           </div>
         </header>
 
