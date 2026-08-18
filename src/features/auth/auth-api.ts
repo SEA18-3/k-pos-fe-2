@@ -18,6 +18,8 @@
 import { loginResponseSchema } from "@/lib/contracts"
 import { z } from "zod"
 import { requestJson } from "@/infrastructure/api/http-client"
+import { mapProduct } from "@/infrastructure/api/mappers"
+import { fetchCatalogProducts } from "@/features/catalog/catalog-api"
 import { replaceCatalog } from "@/infrastructure/persistence/catalog-repository"
 import { saveDeviceIdentity } from "@/infrastructure/persistence/device-repository"
 import type { AuthSession, DeviceIdentity, Product } from "@/infrastructure/persistence/models"
@@ -93,11 +95,10 @@ export async function activateAndLogin(input: {
  * TODO: Implementasi endpoint GET /api/v1/products untuk load katalog lokal.
  */
 export async function bootstrapLocalData(session: AuthSession, device: DeviceIdentity) {
-  // Untuk saat ini, kita tidak melakukan bootstrap dari backend karena endpoint belum ada.
-  // Fungsi ini bisa diisi nanti ketika endpoint GET /api/v1/products sudah terintegrasi.
   await writeSetting("merchantProfile", JSON.stringify({ id: session.merchantId }))
-  // Kembalikan array kosong — user bisa menambahkan produk secara manual
-  const products: Product[] = []
+  const backendProducts = await fetchCatalogProducts(session.token)
+  const products = backendProducts.map(mapProduct)
+  await replaceCatalog(products)
   return products
 }
 
