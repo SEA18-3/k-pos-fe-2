@@ -10,6 +10,7 @@ export type Product = {
   stock: number
   accent: string
   featured?: boolean
+  imageUrl?: string
   active?: boolean
   lowStockThreshold?: number
   updatedAt?: string
