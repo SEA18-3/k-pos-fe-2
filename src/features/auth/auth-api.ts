@@ -106,6 +106,26 @@ export async function activateAndLogin(input: {
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString(),
   }
 
+  // Coba ambil device dari backend atau daftarkan jika belum ada
+  try {
+    const devicesRes = await requestJson("/api/v1/devices", z.any(), {
+      method: "GET"
+    }, session.token)
+    if (devicesRes?.data && devicesRes.data.length > 0) {
+      input.device.id = devicesRes.data[0].id_device
+    } else if (user.role === "OWNER") {
+      const createRes = await requestJson("/api/v1/devices", z.any(), {
+        method: "POST",
+        body: JSON.stringify({ name: input.device.name })
+      }, session.token)
+      if (createRes?.data?.id_device) {
+        input.device.id = createRes.data.id_device
+      }
+    }
+  } catch (err) {
+    console.error("Failed to auto-register device with backend", err)
+  }
+
   await saveAuthSession(session)
   await saveDeviceIdentity({ ...input.device, registeredAt: new Date().toISOString() })
 
