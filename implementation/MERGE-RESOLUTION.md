@@ -78,11 +78,45 @@ Resolusi: **dasar incoming**, dengan penyesuaian:
 
 ### 3 test gagal — **pre-existing, di luar scope C3**
 
-- `src/infrastructure/api/http-client.test.ts > resolveApiUrl > uses the local
-  API during development` — file dari init (`e6b6de0`), tidak berubah di merge.
-- `src/infrastructure/persistence/session-repository.test.ts > offline session
-  lease` (2 test) — terakhir diubah `auth-integration` Ryan (`1c583a9`),
-  semantik lease berubah tanpa update test.
+Ketiga kegagalan adalah **stale test**: menguji perilaku lama yang **sengaja
+diubah** di file wewenang teman (Bagian A/B), bukan akibat resolusi merge C3.
+Ketiga test sudah gagal di cabang `merge/api` sebelum resolusi, dan file sumber
+serta file test-nya tidak berubah selama merge.
+
+#### 1. `http-client.test.ts:63` — "uses the local API during development"
+
+- Harapan test: `resolveApiUrl(undefined, true) === "http://localhost:3001"`.
+- Implementasi `http-client.ts:16`: mengembalikan `"http://localhost:3000"`.
+- Sebab: default dev URL diubah ke port **3000** (backend NestJS berjalan di
+  3000; lihat komentar `http-client.ts:15` "bukan 3001"). Test dari commit init
+  (`e6b6de0`) belum di-update.
+- **Fix (milik teman):** ubah harapan test jadi `3000`.
+
+#### 2. `session-repository.test.ts:25` — "pauses sync after 12 hours…"
+
+- Harapan test: `isOnlineSessionValid(session, afterTokenExpiry) === false`
+  (token dianggap kedaluwarsa setelah 12 jam).
+- Implementasi `session-repository.ts:20-22`: `expiresAt > now`.
+- Sebab: helper `session(now)` di test mengisi `expiresAt` dari **real clock**
+  (`Date.now() + 1 jam`, test line 16), bukan dari `now` yang di-inject. Karena
+  real clock berjalan lebih maju dari `afterTokenExpiry` (berbasis
+  `Date.UTC(2026,7,15)`), `expiresAt` malah **lebih besar** → hasil `true`,
+  bukan `false`. Timing test-nya sendiri tidak konsisten terhadap argumen `now`.
+
+#### 3. `session-repository.test.ts:31` — "blocks only new checkout after the offline lease expires"
+
+- Harapan test: `isOfflineCheckoutAllowed(session, now + OFFLINE_LEASE_MS + 1)
+  === false`.
+- Implementasi `session-repository.ts:24-26` (hasil refactor `auth-integration`
+  Ryan, commit `1c583a9`):
+  ```ts
+  return isOnlineSessionValid(session, now) // Fallback ke sesi online biasa karena offline_lease ditiadakan
+  ```
+- Sebab: konsep **offline lease (12 jam sync / 72 jam checkout) dihapus total**;
+  fungsi kini murni alias dari `isOnlineSessionValid`, sehingga selalu mengikuti
+  masa berlaku token. Test masih menguji semantik lease lama → gagal.
+- **Fix (milik teman):** rombak/hapus test offline lease agar selaras dengan
+  perilaku baru (atau kembalikan mekanisme lease bila memang dibutuhkan).
 
 Keduanya menyentuh file wewenang teman (Bagian A/B) → **tidak diperbaiki di sini**
 (per `CONTEXT.md`, dilarang mengubah file tersebut). Seluruh test C3 hijau:
