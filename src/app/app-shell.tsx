@@ -236,7 +236,6 @@ function DesktopSidebar(props: {
               {props.merchantId ?? "Local workspace"}
             </span>
           </span>
-          <IconChevronDown className="size-3.5 text-muted-foreground" />
         </button>
       </div>
       <nav className="grid gap-1 px-2 pt-1">
