@@ -21,7 +21,12 @@ export function CheckoutPage() {
   const products = useCatalogProducts()
   const transactions = useLocalTransactions()
   const session = useCurrentSession()
-  const { cart, addItem, decrementItem, removeItem, clearCart, connection } = useUiStore()
+  const cart = useUiStore((state) => state.cart)
+  const connection = useUiStore((state) => state.connection)
+  const addItem = useUiStore((state) => state.addItem)
+  const decrementItem = useUiStore((state) => state.decrementItem)
+  const removeItem = useUiStore((state) => state.removeItem)
+  const clearCart = useUiStore((state) => state.clearCart)
   const [category, setCategory] = useState<CatalogCategory>("Semua")
   const [query, setQuery] = useState("")
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -35,15 +40,25 @@ export function CheckoutPage() {
         .map((product) => ({ product, quantity: cart[product.id]! })),
     [products, cart],
   )
-  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-  const today = new Date().toDateString()
-  const todayTransactions = transactions.filter(
-    (transaction) => new Date(transaction.createdAt).toDateString() === today,
+  const subtotal = useMemo(
+    () => cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+    [cartItems],
   )
-  const todaySales = todayTransactions.reduce((sum, transaction) => sum + transaction.total, 0)
-  const provisional = transactions.filter(
-    (transaction) => transaction.syncStatus === "PENDING_SYNC",
-  ).length
+  const { todayTransactions, todaySales, provisional } = useMemo(() => {
+    const today = new Date().toDateString()
+    const todayTxs = transactions.filter(
+      (transaction) => new Date(transaction.createdAt).toDateString() === today,
+    )
+    const sales = todayTxs.reduce((sum, transaction) => sum + transaction.total, 0)
+    const pending = transactions.filter(
+      (transaction) => transaction.syncStatus === "PENDING_SYNC",
+    ).length
+    return {
+      todayTransactions: todayTxs,
+      todaySales: sales,
+      provisional: pending,
+    }
+  }, [transactions])
 
   async function handleConfirm(
     paymentMethod: PaymentMethod,
