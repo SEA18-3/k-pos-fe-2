@@ -10,7 +10,18 @@ export function TransactionHistoryTimeline({ transactionId }: { transactionId: s
   const { data: history, isLoading } = useTransactionHistory(session ?? null, transactionId)
 
   if (isLoading) return <div className="text-xs text-muted-foreground p-4 animate-pulse">Memuat riwayat koreksi...</div>
-  if (!history || history.length <= 1) return null // Only show if edited
+  if (!history) return null
+
+  if (history.length <= 1) {
+    return (
+      <Card className="p-4 mt-4">
+        <h3 className="font-semibold text-sm mb-2">Riwayat Koreksi (Editan)</h3>
+        <p className="text-xs text-muted-foreground">
+          Transaksi ini belum pernah dikoreksi (masih versi asli).
+        </p>
+      </Card>
+    )
+  }
 
   return (
     <Card className="p-4 mt-4">
