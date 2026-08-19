@@ -12,6 +12,7 @@ import { useCurrentSession } from "@/features/auth/session-queries"
 import {
   createCorrection,
   fetchBackendTransactions,
+  fetchReconciliations,
   resolveConflict,
 } from "@/features/reconciliation/reconciliation-api"
 
@@ -26,12 +27,20 @@ export function useReconciliationDesk() {
     if (!session) return
     setLoading(true)
     try {
-      // Ambil semua transaksi — frontend bisa filter di sisi client
-      const transactionData = await fetchBackendTransactions(session, { limit: 100 })
+      const [transactionData, reconciliationData] = await Promise.all([
+        fetchBackendTransactions(session, { limit: 100 }),
+        fetchReconciliations(session).catch(() => ({ data: [] })),
+      ])
       setTransactions(transactionData.data.data)
-      // fetchCorrections & fetchInventoryDiscrepancies belum ada endpoint backend
-      // TODO: Implementasikan saat endpoint tersedia
-      setCorrections([])
+      const mappedCorrections: CorrectionRecord[] = (reconciliationData.data || []).map((rec) => ({
+        id_correction: rec.id_reconciliation,
+        id_old_transaction: rec.payment?.transaction?.id_transaction ?? rec.id_payment,
+        id_new_transaction: rec.status,
+        corrected_by: rec.resolvedByUser?.full_name ?? rec.openedByUser?.full_name ?? rec.opened_by,
+        reason: `${rec.reason}${rec.resolution_note ? ` — Catatan: ${rec.resolution_note}` : ""}`,
+        created_at: rec.created_at,
+      }))
+      setCorrections(mappedCorrections)
       setDiscrepancies([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal memuat reconciliation desk")

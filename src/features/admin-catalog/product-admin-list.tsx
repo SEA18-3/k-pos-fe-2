@@ -33,6 +33,7 @@ export function ProductAdminList(props: {
                   accent: "#06b6d4",
                   category: "Umum",
                   active: product.is_active,
+                  imageUrl: product.image_url ?? undefined,
                 } as any
               }
               className="size-10 shrink-0 rounded-md border"

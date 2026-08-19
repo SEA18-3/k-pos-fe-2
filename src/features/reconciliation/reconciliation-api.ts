@@ -100,6 +100,61 @@ const correctionResponseSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Payment Reconciliation Case Schemas (GET /api/v1/reconciliations)
+// ---------------------------------------------------------------------------
+
+export const backendReconciliationCaseSchema = z.object({
+  id_reconciliation: z.string(),
+  id_payment: z.string(),
+  status: z.enum(["OPEN", "RESOLVED_VALID", "RESOLVED_INVALID"]),
+  reason: z.string(),
+  evidence_note: z.string().nullable().optional(),
+  opened_by: z.string(),
+  created_at: z.string(),
+  resolved_at: z.string().nullable().optional(),
+  resolved_by: z.string().nullable().optional(),
+  resolution_note: z.string().nullable().optional(),
+  payment: z
+    .object({
+      id_payment: z.string(),
+      amount: z.string().or(z.number()),
+      method: z.string(),
+      transaction: z
+        .object({
+          id_transaction: z.string(),
+          offline_uuid: z.string().nullable().optional(),
+          total: z.string().or(z.number()),
+        })
+        .optional()
+        .nullable(),
+    })
+    .optional()
+    .nullable(),
+  openedByUser: z.object({ full_name: z.string() }).optional().nullable(),
+  resolvedByUser: z.object({ full_name: z.string() }).optional().nullable(),
+})
+
+export type BackendReconciliationCase = z.output<typeof backendReconciliationCaseSchema>
+
+export const reconciliationListResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.array(backendReconciliationCaseSchema),
+})
+
+export const resolveReconciliationResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z
+    .object({
+      id_reconciliation: z.string().optional(),
+      status: z.string().optional(),
+      resolution_note: z.string().optional(),
+    })
+    .passthrough(),
+})
+
+// ---------------------------------------------------------------------------
 // Request Types
 // ---------------------------------------------------------------------------
 
@@ -118,6 +173,17 @@ export type CreateCorrectionRequest = {
 export type ResolveConflictRequest = {
   action: "CONFIRM" | "VOID"
   notes?: string
+}
+
+export type ResolveReconciliationCaseRequest = {
+  resolution: string
+  status?: "RESOLVED_VALID" | "RESOLVED_INVALID"
+}
+
+export type CreateReconciliationCaseRequest = {
+  id_transaction: string
+  reason: string
+  evidence?: string
 }
 
 export type CorrectionRecord = {
@@ -178,6 +244,34 @@ export function createCorrection(
   )
 }
 
-// Fungsi-fungsi lama yang belum memiliki endpoint backend:
-// fetchCorrections, fetchInventoryDiscrepancies, resolveInventoryDiscrepancy
-// TODO: Implementasikan setelah endpoint backend tersedia
+/** Ambil semua kasus rekonsiliasi pembayaran milik merchant (Khusus OWNER) */
+export function fetchReconciliations(session: AuthSession) {
+  return requestJson("/api/v1/reconciliations", reconciliationListResponseSchema, {}, session.token)
+}
+
+/** Buka kasus rekonsiliasi pembayaran baru */
+export function createReconciliationCase(
+  session: AuthSession,
+  input: CreateReconciliationCaseRequest,
+) {
+  return requestJson(
+    "/api/v1/reconciliations",
+    resolveReconciliationResponseSchema,
+    { method: "POST", body: JSON.stringify(input) },
+    session.token,
+  )
+}
+
+/** Selesaikan kasus rekonsiliasi pembayaran (RESOLVED_VALID / RESOLVED_INVALID) (Khusus OWNER) */
+export function resolvePaymentReconciliation(
+  session: AuthSession,
+  reconciliationId: string,
+  input: ResolveReconciliationCaseRequest,
+) {
+  return requestJson(
+    `/api/v1/reconciliations/${encodeURIComponent(reconciliationId)}/resolve`,
+    resolveReconciliationResponseSchema,
+    { method: "POST", body: JSON.stringify(input) },
+    session.token,
+  )
+}

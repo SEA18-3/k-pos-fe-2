@@ -18,6 +18,8 @@
 import { loginResponseSchema } from "@/lib/contracts"
 import { z } from "zod"
 import { requestJson } from "@/infrastructure/api/http-client"
+import { mapProduct } from "@/infrastructure/api/mappers"
+import { fetchCatalogProducts } from "@/features/catalog/catalog-api"
 import { replaceCatalog } from "@/infrastructure/persistence/catalog-repository"
 import { saveDeviceIdentity } from "@/infrastructure/persistence/device-repository"
 import type { AuthSession, DeviceIdentity, Product } from "@/infrastructure/persistence/models"
@@ -88,17 +90,20 @@ export async function activateAndLogin(input: {
 
 /**
  * Mengambil data produk dari backend untuk dimasukkan ke IndexedDB.
- * Endpoint /api/v1/bootstrap belum ada di backend kita — akan kita fallback ke kosong.
- *
- * TODO: Implementasi endpoint GET /api/v1/products untuk load katalog lokal.
+ * Jika koneksi gagal, sistem tetap mempertahankan katalog lokal yang sudah ada
+ * dan sesi login kasir tetap aktif (degraded offline mode).
  */
-export async function bootstrapLocalData(session: AuthSession, device: DeviceIdentity) {
-  // Untuk saat ini, kita tidak melakukan bootstrap dari backend karena endpoint belum ada.
-  // Fungsi ini bisa diisi nanti ketika endpoint GET /api/v1/products sudah terintegrasi.
+export async function bootstrapLocalData(session: AuthSession, _device: DeviceIdentity): Promise<Product[]> {
   await writeSetting("merchantProfile", JSON.stringify({ id: session.merchantId }))
-  // Kembalikan array kosong — user bisa menambahkan produk secara manual
-  const products: Product[] = []
-  return products
+  try {
+    const backendProducts = await fetchCatalogProducts(session.token)
+    const products = backendProducts.map(mapProduct)
+    await replaceCatalog(products)
+    return products
+  } catch (error) {
+    console.warn("[bootstrap] Catalog fetch failed during bootstrap; preserving existing local catalog:", error)
+    return []
+  }
 }
 
 /**

@@ -148,7 +148,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </AppShell>
-      <Toaster theme="dark" position="top-center" richColors closeButton />
+      <Toaster theme="light" position="top-center" richColors closeButton />
     </BrowserRouter>
   )
 }

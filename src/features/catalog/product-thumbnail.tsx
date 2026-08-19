@@ -7,6 +7,7 @@ type ProductThumbnailData = {
   name: string
   category: string
   accent: string
+  imageUrl?: string
 }
 
 const imageBySku: Readonly<Record<string, string>> = {
@@ -27,7 +28,8 @@ export function ProductThumbnail({
   product: ProductThumbnailData
   className?: string
 }) {
-  const image = imageBySku[product.sku]
+  const staticImage = imageBySku[product.sku]
+  const image = product.imageUrl ?? staticImage
   const Icon =
     product.category === "Kopi"
       ? IconCoffee

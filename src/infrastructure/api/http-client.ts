@@ -42,7 +42,13 @@ export async function requestJson<TSchema extends ZodType>(
   let response: Response
   try {
     const headers = new Headers(init.headers)
-    if (init.body !== undefined && init.body !== null && !headers.has("content-type")) {
+    const isMultipart = init.body instanceof FormData
+    if (
+      init.body !== undefined &&
+      init.body !== null &&
+      !isMultipart &&
+      !headers.has("content-type")
+    ) {
       headers.set("content-type", "application/json")
     }
     if (token && !headers.has("authorization")) {

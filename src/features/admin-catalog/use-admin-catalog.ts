@@ -61,13 +61,13 @@ export function useAdminCatalog() {
     loading,
     mutatingId,
     refresh,
-    create: (input: ProductInput) =>
+    create: (input: ProductInput, image?: File | null) =>
       session
-        ? run("create", () => createAdminProduct(session, input), "Produk dibuat")
+        ? run("create", () => createAdminProduct(session, input, image), "Produk dibuat")
         : Promise.resolve(null),
-    update: (productId: string, patch: ProductPatch) =>
+    update: (productId: string, patch: ProductPatch, image?: File | null) =>
       session
-        ? run(productId, () => updateAdminProduct(session, productId, patch), "Produk diperbarui")
+        ? run(productId, () => updateAdminProduct(session, productId, patch, image), "Produk diperbarui")
         : Promise.resolve(null),
     setArchived: (product: Product, archived: boolean) =>
       session
