@@ -22,7 +22,7 @@ export function ReconciliationPage() {
     <div>
       <PageHeader
         title="Reconciliation Desk"
-        description="Manajemen kasus perselisihan pembayaran (dispute) dari transaksi kasir."
+        description="Periksa dan selesaikan transaksi yang bermasalah atau memiliki selisih pembayaran."
         actions={
           <Button variant="outline" onClick={() => void data.refresh()} disabled={data.loading}>
             <IconRefresh className={data.loading ? "animate-spin" : ""} /> Refresh

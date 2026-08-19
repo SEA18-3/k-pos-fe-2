@@ -14,7 +14,7 @@ export function AdminUsersPage() {
     <div>
       <PageHeader
         title="Akun & perangkat"
-        description="Kelola kasir, Admin, PIN, dan akses device tanpa membuka data merchant lain."
+        description="Atur akun kasir, hak akses, dan perangkat yang terhubung ke toko Anda."
         actions={
           <Button variant="outline" disabled={admin.loading} onClick={() => void admin.refresh()}>
             <IconRefresh /> {admin.loading ? "Memuat…" : "Refresh"}

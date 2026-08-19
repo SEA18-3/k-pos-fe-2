@@ -65,7 +65,7 @@ export function TransactionsPage() {
     <div>
       <PageHeader
         title="Transaksi"
-        description="Semua penjualan dari perangkat ini, termasuk status sinkronisasi saat offline."
+        description="Daftar semua transaksi yang dilakukan melalui perangkat ini, baik yang sudah tersimpan maupun yang tertunda."
         actions={refreshAction}
       />
 

@@ -112,9 +112,6 @@ function LoginForm({
           <IconArrowRight />
         </Button>
         {!isAdminMode && <DeviceIdentityCard deviceId={device.id} />}
-        <p className="mt-6 text-center text-[10px] leading-5 text-muted-foreground">
-          Demo: owner@kpos.com · password123
-        </p>
         <p className="mt-2 text-center text-sm text-muted-foreground">
           Belum punya akun?{" "}
           <Link to="/register" className="text-primary hover:underline font-semibold">
@@ -235,10 +232,6 @@ function LoginHero() {
           ))}
         </div>
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Siap dipakai di toko, bazar, dan pop-up store.
-      </p>
     </section>
   )
 }

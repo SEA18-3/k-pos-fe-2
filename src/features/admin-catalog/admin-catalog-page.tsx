@@ -38,7 +38,7 @@ export function AdminCatalogPage() {
     <div>
       <PageHeader
         title="Katalog & harga"
-        description="Perubahan berlaku pada refresh berikutnya; transaksi offline lama tetap membawa snapshot harga historis."
+        description="Kelola daftar produk dan harganya. Perubahan akan berlaku setelah kasir me-refresh katalog."
         actions={
           <Button
             variant="outline"

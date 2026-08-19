@@ -42,7 +42,7 @@ export function SettingsPage() {
     <div>
       <PageHeader
         title="Pengaturan perangkat"
-        description="Identitas instalasi ini disimpan secara lokal dan terikat ke merchant."
+        description="Pengaturan identitas perangkat dan sistem."
         actions={
           <Button variant="outline" disabled={loggingOut} onClick={logout}>
             <IconLogout /> {loggingOut ? "Keluar…" : "Ganti operator"}

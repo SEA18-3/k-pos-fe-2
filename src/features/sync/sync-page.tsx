@@ -51,7 +51,7 @@ export function SyncPage() {
     <div>
       <PageHeader
         title="Sync & Data"
-        description="Lihat local outbox, hasil acceptance backend, dan retry yang perlu perhatian."
+        description="Pantau status sinkronisasi data transaksi antara perangkat ini dengan server utama."
         actions={
           <Button
             onClick={() => void retryAll()}
