@@ -15,6 +15,7 @@ const transactionSchema = z.object({
   notes: z.string().nullable().optional(),
   created_at: z.string(),
   payment: z.object({
+    id_payment: z.string().optional(),
     method: z.string(),
     cash_received: decimal.nullable().optional(),
     change_amount: decimal.nullable().optional(),
@@ -88,6 +89,7 @@ export function mapServerTransaction(tx: any, session: AuthSession): LocalTransa
     syncStatus: "SYNCED",
     retryCount: 0,
     offlineUuid: tx.offline_uuid || tx.id_transaction,
+    paymentId: effectivePayment?.id_payment ?? undefined,
     createdAt: tx.created_at,
     receivedAtBackend: tx.created_at,
   }

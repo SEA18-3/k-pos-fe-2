@@ -100,7 +100,7 @@ export function TransactionDetailPage() {
         <div className="grid gap-4 content-start">
           <TransactionFinancialDetails transaction={transaction} />
           <TransactionHistoryTimeline transactionId={transaction.id} />
-          <ReconciliationHistoryTimeline paymentId={(transaction as any).paymentId} />
+          <ReconciliationHistoryTimeline paymentId={transaction.paymentId} />
         </div>
         <TransactionLifecycle transaction={transaction} events={lifecycleEvents(transaction)} />
       </div>
