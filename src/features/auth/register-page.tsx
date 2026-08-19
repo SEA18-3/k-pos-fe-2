@@ -180,7 +180,7 @@ function MobileBrand() {
   return (
     <div className="mb-8 flex items-center gap-3 lg:hidden">
       <img src="/brand/k-pos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
-      <span className="text-sm font-semibold tracking-[0.12em]">k-pos</span>
+      <span className="text-sm font-semibold tracking-[0.12em]">K-POS</span>
     </div>
   )
 }

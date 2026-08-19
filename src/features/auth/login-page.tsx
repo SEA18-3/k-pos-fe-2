@@ -214,7 +214,7 @@ function LoginHero() {
           <span className="text-primary">.</span>
         </h1>
         <p className="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground xl:text-base xl:leading-7">
-          k-pos menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
+          K-POS menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
           koneksi kembali tersedia.
         </p>
 

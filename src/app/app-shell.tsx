@@ -220,7 +220,7 @@ function DesktopSidebar(props: {
       <div className="flex h-[62px] items-center gap-2.5 border-b px-4">
         <img src="/brand/k-pos-icon.png" alt="k-pos" className="size-8 rounded-md object-cover" />
         <div>
-          <div className="text-sm font-semibold tracking-[0.08em]">k-pos</div>
+          <div className="text-sm font-semibold tracking-[0.08em]">K-POS</div>
         </div>
       </div>
       <div className="px-2 py-3">
