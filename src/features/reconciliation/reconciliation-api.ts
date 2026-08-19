@@ -128,6 +128,7 @@ export function resolveReconciliation(
 
 export type CreateCorrectionRequest = {
   reason: string
+  notes?: string
   items: Array<{
     id_product: string
     quantity: number
