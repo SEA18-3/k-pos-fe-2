@@ -11,13 +11,14 @@ export type ConfirmSaleInput = {
   paymentReference?: string
 }
 
-type TransactionContext = {
+export type TransactionContext = {
   transactionId: string
   createdAt: string
   merchantId: string
   deviceId: string
   operatorId: string
   operatorName: string
+  lastBootstrapAt?: string
 }
 
 export function buildLocalTransaction(
@@ -36,7 +37,7 @@ export function buildLocalTransaction(
       productId: product.id,
       name: product.name,
       sku: product.sku,
-      catalogVersion: product.updatedAt ?? context.createdAt,
+      catalogVersion: product.updatedAt || context.lastBootstrapAt || context.createdAt,
       quantity,
       unitPrice: product.price,
       subtotal: product.price * quantity,

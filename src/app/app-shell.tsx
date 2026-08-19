@@ -41,7 +41,8 @@ const navItems = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const { connection, setConnection } = useUiStore()
+  const connection = useUiStore((state) => state.connection)
+  const setConnection = useUiStore((state) => state.setConnection)
   const [switching, setSwitching] = useState(false)
   const { lastSyncAt, pendingCount } = useSyncOverview()
   const session = useCurrentSession()

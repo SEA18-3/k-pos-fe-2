@@ -25,13 +25,13 @@ export function AdminCatalogPage() {
     [catalog.products, query],
   )
 
-  async function save(input: ProductInput) {
+  async function save(input: ProductInput, image?: File | null) {
     if (editing) {
-      const updated = await catalog.update(editing.id_product, input)
+      const updated = await catalog.update(editing.id_product, input, image)
       if (updated) setEditing(null)
       return Boolean(updated)
     }
-    return Boolean(await catalog.create(input))
+    return Boolean(await catalog.create(input, image))
   }
 
   return (

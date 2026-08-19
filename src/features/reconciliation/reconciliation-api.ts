@@ -22,7 +22,7 @@ const backendPaymentSchema = z.object({
   reconciliation_note: z.string().nullable().optional(),
 })
 
-const backendTransactionSchema = z.object({
+export const backendTransactionSchema = z.object({
   id_transaction: z.string(),
   id_merchant: z.string(),
   id_user: z.string(),
@@ -44,7 +44,7 @@ const backendTransactionSchema = z.object({
 
 export type BackendTransaction = z.output<typeof backendTransactionSchema>
 
-const reconciliationSchema = z.object({
+export const reconciliationSchema = z.object({
   id_reconciliation: z.string(),
   id_payment: z.string(),
   opened_by: z.string(),
@@ -55,31 +55,49 @@ const reconciliationSchema = z.object({
   resolved_at: z.string().nullable().optional(),
   resolution_note: z.string().nullable().optional(),
   created_at: z.string(),
-  updated_at: z.string(),
+  updated_at: z.string().optional(),
   payment: backendPaymentSchema.extend({
-    transaction: backendTransactionSchema.optional()
-  }).optional(),
-  openedByUser: z.object({ full_name: z.string() }).optional(),
+    transaction: backendTransactionSchema.optional(),
+  }).optional().nullable(),
+  openedByUser: z.object({ full_name: z.string() }).optional().nullable(),
   resolvedByUser: z.object({ full_name: z.string() }).optional().nullable(),
 })
 
 export type ReconciliationRecord = z.output<typeof reconciliationSchema>
 
-const reconciliationListResponseSchema = z.object({
-  status: z.string(),
-  message: z.string(),
+export const reconciliationListResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
   data: z.array(reconciliationSchema),
 })
 
-const reconciliationResponseSchema = z.object({
-  status: z.string(),
-  message: z.string(),
+export const reconciliationResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
   data: reconciliationSchema,
 })
 
-const correctionResponseSchema = z.object({
-  status: z.string(),
-  message: z.string(),
+export const transactionListResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.array(backendTransactionSchema),
+})
+
+export const resolveResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: backendTransactionSchema.optional(),
+})
+
+export const resolveReconciliationResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: reconciliationSchema.optional(),
+})
+
+export const correctionResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
   data: z.object({
     message: z.string().optional(),
     data: z.object({
@@ -94,37 +112,8 @@ const correctionResponseSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// API Functions
+// Request Types
 // ---------------------------------------------------------------------------
-
-export function getReconciliations(session: AuthSession) {
-  return requestJson(`/api/v1/reconciliations`, reconciliationListResponseSchema, {}, session.token)
-}
-
-export function openReconciliation(
-  session: AuthSession,
-  input: { id_transaction: string; reason: string }
-) {
-  return requestJson(
-    `/api/v1/reconciliations`,
-    reconciliationResponseSchema,
-    { method: "POST", body: JSON.stringify(input) },
-    session.token,
-  )
-}
-
-export function resolveReconciliation(
-  session: AuthSession,
-  id_reconciliation: string,
-  input: { status: "RESOLVED_VALID" | "RESOLVED_INVALID", resolution?: string }
-) {
-  return requestJson(
-    `/api/v1/reconciliations/${encodeURIComponent(id_reconciliation)}/resolve`,
-    reconciliationResponseSchema,
-    { method: "POST", body: JSON.stringify(input) },
-    session.token,
-  )
-}
 
 export type CreateCorrectionRequest = {
   reason: string
@@ -139,7 +128,112 @@ export type CreateCorrectionRequest = {
   total: number
 }
 
-export function correctTransaction(
+export type ResolveConflictRequest = {
+  action: "CONFIRM" | "VOID"
+  notes?: string
+}
+
+export type ResolveReconciliationCaseRequest = {
+  resolution: string
+  status?: "RESOLVED_VALID" | "RESOLVED_INVALID"
+}
+
+export type CreateReconciliationCaseRequest = {
+  id_transaction: string
+  reason: string
+  evidence?: string
+}
+
+export type CorrectionRecord = {
+  id_correction: string
+  id_old_transaction: string
+  id_new_transaction: string
+  corrected_by: string
+  reason: string
+  created_at: string
+}
+
+export type InventoryDiscrepancy = {
+  id: string
+  description: string
+}
+
+// ---------------------------------------------------------------------------
+// API Functions
+// ---------------------------------------------------------------------------
+
+/** Ambil semua kasus rekonsiliasi pembayaran milik merchant (Khusus OWNER) */
+export function fetchReconciliations(session: AuthSession) {
+  return requestJson("/api/v1/reconciliations", reconciliationListResponseSchema, {}, session.token)
+}
+
+/** Buka kasus rekonsiliasi baru */
+export function openReconciliation(
+  session: AuthSession,
+  input: { id_transaction: string; reason: string; evidence_note?: string },
+) {
+  return requestJson(
+    "/api/v1/reconciliations",
+    reconciliationResponseSchema,
+    { method: "POST", body: JSON.stringify(input) },
+    session.token,
+  )
+}
+
+/** Buka kasus rekonsiliasi baru (alias) */
+export const createReconciliationCase = openReconciliation
+
+/** Selesaikan kasus rekonsiliasi pembayaran */
+export function resolveReconciliation(
+  session: AuthSession,
+  reconciliationId: string,
+  input: { status?: "RESOLVED_VALID" | "RESOLVED_INVALID"; resolution: string },
+) {
+  return requestJson(
+    `/api/v1/reconciliations/${encodeURIComponent(reconciliationId)}/resolve`,
+    resolveReconciliationResponseSchema,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        resolution: input.resolution,
+        status: input.status ?? "RESOLVED_VALID",
+      }),
+    },
+    session.token,
+  )
+}
+
+/** Selesaikan kasus rekonsiliasi pembayaran (alias) */
+export const resolvePaymentReconciliation = resolveReconciliation
+
+/** Ambil daftar transaksi dari backend */
+export function fetchBackendTransactions(
+  session: AuthSession,
+  params: { sync_status?: string; limit?: number } = {},
+) {
+  const query = new URLSearchParams()
+  if (params.sync_status) query.set("sync_status", params.sync_status)
+  if (params.limit) query.set("limit", String(params.limit))
+  const qs = query.toString() ? `?${query.toString()}` : ""
+  return requestJson(`/api/v1/transactions${qs}`, transactionListResponseSchema, {}, session.token)
+}
+
+/** Selesaikan satu transaksi SYNC_CONFLICT secara manual (CONFIRM atau VOID) */
+export function resolveConflict(
+  session: AuthSession,
+  transactionId: string,
+  input: ResolveConflictRequest,
+) {
+  return requestJson(
+    `/api/v1/transactions/${encodeURIComponent(transactionId)}/resolve`,
+    resolveResponseSchema,
+    { method: "POST", body: JSON.stringify(input) },
+    session.token,
+  )
+}
+
+/** Buat koreksi pada transaksi CONFIRMED (Immutable Bridge pattern) */
+export function createCorrection(
   session: AuthSession,
   transactionId: string,
   input: CreateCorrectionRequest,
@@ -152,3 +246,5 @@ export function correctTransaction(
   )
 }
 
+/** Alias createCorrection */
+export const correctTransaction = createCorrection

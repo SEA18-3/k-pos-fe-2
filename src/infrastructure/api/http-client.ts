@@ -8,46 +8,6 @@
 
 import { apiErrorResponseSchema } from "@/lib/contracts"
 import { z, type ZodType } from "zod"
-import { getAuthSession, saveAuthSession, clearAuthSession } from "@/infrastructure/persistence/session-repository"
-
-let refreshPromise: Promise<string | null> | null = null
-
-async function attemptRefresh() {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const session = await getAuthSession()
-      if (!session) return null
-
-      try {
-        const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
-          method: "POST",
-          headers: session.refreshToken ? { "x-refresh-token": session.refreshToken } : {},
-          credentials: "include",
-        })
-
-        if (!res.ok) {
-          await clearAuthSession()
-          // Optional: force reload to login screen
-          window.location.reload()
-          return null
-        }
-
-        const data = await res.json()
-        session.token = data.data.access_token
-        session.refreshToken = data.data.refresh_token ?? session.refreshToken
-        session.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString()
-        
-        await saveAuthSession(session)
-        return session.token
-      } catch {
-        return null
-      }
-    })().finally(() => {
-      refreshPromise = null
-    })
-  }
-  return refreshPromise
-}
 
 export function resolveApiUrl(configuredUrl: string | undefined, isDevelopment: boolean) {
   const normalizedUrl = configuredUrl?.trim().replace(/\/+$/, "")
@@ -73,16 +33,43 @@ export class ApiError extends Error {
   }
 }
 
+let refreshPromise: Promise<string | null> | null = null
+
+async function getRefreshedToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    try {
+      const { refreshAuthSession } = await import("@/features/auth/auth-api")
+      const newSession = await refreshAuthSession()
+      return newSession ? newSession.token : null
+    } catch {
+      return null
+    } finally {
+      refreshPromise = null
+    }
+  })()
+
+  return refreshPromise
+}
+
 export async function requestJson<TSchema extends ZodType>(
   path: string,
   responseSchema: TSchema,
   init: RequestInit = {},
   token?: string,
+  isRetry = false,
 ): Promise<z.output<TSchema>> {
   let response: Response
   try {
     const headers = new Headers(init.headers)
-    if (init.body !== undefined && init.body !== null && !(init.body instanceof FormData) && !headers.has("content-type")) {
+    const isMultipart = init.body instanceof FormData
+    if (
+      init.body !== undefined &&
+      init.body !== null &&
+      !isMultipart &&
+      !headers.has("content-type")
+    ) {
       headers.set("content-type", "application/json")
     }
     if (token && !headers.has("authorization")) {
@@ -93,21 +80,24 @@ export async function requestJson<TSchema extends ZodType>(
       headers,
       credentials: init.credentials ?? "include",
     })
-
-    // Auto-refresh token if 401 Unauthorized
-    if (response.status === 401 && token) {
-      const newToken = await attemptRefresh()
-      if (newToken) {
-        headers.set("authorization", `Bearer ${newToken}`)
-        response = await fetch(`${API_URL}${path}`, {
-          ...init,
-          headers,
-          credentials: init.credentials ?? "include",
-        })
-      }
-    }
   } catch {
     throw new ApiError("Backend tidak dapat dijangkau", 0, true, "NETWORK_UNREACHABLE")
+  }
+
+  // Handle 401 Unauthorized with single-flight silent refresh
+  const isAuthEndpoint = path.startsWith("/api/v1/auth/login") || path.startsWith("/api/v1/auth/refresh")
+  if (response.status === 401 && !isRetry && !isAuthEndpoint) {
+    const newToken = await getRefreshedToken()
+    if (newToken) {
+      // Retry original request exactly once using the fresh access token
+      const retryInit = { ...init }
+      if (init.headers) {
+        const h = new Headers(init.headers)
+        h.set("authorization", `Bearer ${newToken}`)
+        retryInit.headers = h
+      }
+      return requestJson(path, responseSchema, retryInit, newToken, true)
+    }
   }
 
   const body: unknown = await response.json().catch(() => null)

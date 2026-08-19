@@ -12,8 +12,8 @@ export type BackendProduct = {
   updated_at: string
   inventory?: {
     current_stock: number
-    reserved: number
-    last_updated: string
+    reserved?: number
+    last_updated?: string
   }
 }
 

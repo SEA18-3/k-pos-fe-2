@@ -72,6 +72,9 @@ const softDeleteResponseSchema = z.object({
 // Request Types
 // ---------------------------------------------------------------------------
 
+export const ACCEPTED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"]
+export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024
+
 export type ProductInput = {
   name: string
   sku: string
@@ -82,6 +85,39 @@ export type ProductInput = {
 export type ProductPatch = Partial<ProductInput>
 
 // ---------------------------------------------------------------------------
+// Multipart helpers
+// ---------------------------------------------------------------------------
+
+/** Validasi gambar client-side: MIME whitelist + ukuran maks 5MB (sama seperti backend) */
+export function validateProductImage(file: File): string | null {
+  if (!ACCEPTED_IMAGE_MIME_TYPES.includes(file.type)) {
+    return "Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP."
+  }
+  if (file.size > MAX_IMAGE_FILE_SIZE) {
+    return `Ukuran gambar maksimal ${MAX_IMAGE_FILE_SIZE / (1024 * 1024)}MB.`
+  }
+  return null
+}
+
+/**
+ * Bangun FormData multipart sesuai kontrak backend.
+ * Hanya field kontrak yang dikirim (name, sku, price, image) — image_url
+ * TIDAK dikirim karena backend memakai forbidNonWhitelisted.
+ */
+export function buildProductFormData(
+  input: Partial<ProductInput>,
+  image?: File | null,
+): FormData {
+  const form = new FormData()
+  if (input.name !== undefined) form.set("name", input.name)
+  if (input.sku !== undefined) form.set("sku", input.sku)
+  if (input.price !== undefined) form.set("price", String(input.price))
+  const actualImage = image ?? input.image
+  if (actualImage) form.set("image", actualImage, actualImage.name)
+  return form
+}
+
+// ---------------------------------------------------------------------------
 // API Functions
 // ---------------------------------------------------------------------------
 
@@ -90,36 +126,29 @@ export function fetchAdminProducts(session: AuthSession) {
   return requestJson("/api/v1/products", productListResponseSchema, {}, session.token)
 }
 
-function toFormData(data: Record<string, any>) {
-  const form = new FormData()
-  for (const [key, value] of Object.entries(data)) {
-    if (value !== undefined && value !== null) {
-      if (value instanceof Blob) {
-        form.append(key, value)
-      } else {
-        form.append(key, String(value))
-      }
-    }
-  }
-  return form
-}
-
 /** Buat produk baru + otomatis buat record Inventory dengan current_stock=0 */
-export function createAdminProduct(session: AuthSession, input: ProductInput) {
+export function createAdminProduct(session: AuthSession, input: ProductInput, image?: File | null) {
+  const body = buildProductFormData(input, image)
   return requestJson(
     "/api/v1/products",
     productMutationResponseSchema,
-    { method: "POST", body: toFormData(input) },
+    { method: "POST", body },
     session.token,
   )
 }
 
 /** Update detail produk (semua field opsional) */
-export function updateAdminProduct(session: AuthSession, productId: string, patch: ProductPatch) {
+export function updateAdminProduct(
+  session: AuthSession,
+  productId: string,
+  patch: ProductPatch,
+  image?: File | null,
+) {
+  const body = buildProductFormData(patch, image)
   return requestJson(
     `/api/v1/products/${encodeURIComponent(productId)}`,
     productMutationResponseSchema,
-    { method: "PATCH", body: toFormData(patch) },
+    { method: "PATCH", body },
     session.token,
   )
 }

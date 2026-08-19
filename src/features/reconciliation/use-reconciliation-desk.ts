@@ -3,7 +3,7 @@ import { toast } from "sonner"
 
 import { useCurrentSession } from "@/features/auth/session-queries"
 import {
-  getReconciliations,
+  fetchReconciliations,
   resolveReconciliation,
   type ReconciliationRecord,
 } from "@/features/reconciliation/reconciliation-api"
@@ -17,8 +17,8 @@ export function useReconciliationDesk() {
     if (!session) return
     setLoading(true)
     try {
-      const data = await getReconciliations(session)
-      setReconciliations(data.data)
+      const res = await fetchReconciliations(session)
+      setReconciliations(res.data)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal memuat reconciliation desk")
     } finally {
@@ -26,9 +26,15 @@ export function useReconciliationDesk() {
     }
   }, [session])
 
-  useEffect(() => void refresh(), [refresh])
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
-  async function resolve(id_reconciliation: string, status: "RESOLVED_VALID" | "RESOLVED_INVALID", resolution?: string) {
+  async function resolve(
+    id_reconciliation: string,
+    status: "RESOLVED_VALID" | "RESOLVED_INVALID",
+    resolution: string,
+  ) {
     if (!session) return
     try {
       await resolveReconciliation(session, id_reconciliation, { status, resolution })
@@ -47,4 +53,3 @@ export function useReconciliationDesk() {
     resolve,
   }
 }
-

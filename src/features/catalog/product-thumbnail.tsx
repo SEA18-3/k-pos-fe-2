@@ -33,7 +33,6 @@ export function ProductThumbnail({
   if (image && !image.startsWith("http") && !image.startsWith("/products/") && !image.startsWith("data:")) {
     image = `${API_URL}${image.startsWith("/") ? "" : "/"}${image}`
   }
-
   const Icon =
     product.category === "Kopi"
       ? IconCoffee

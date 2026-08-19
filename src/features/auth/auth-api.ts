@@ -4,15 +4,11 @@
  * Mengintegrasikan auth frontend dengan backend K-POS.
  *
  * Endpoint backend yang digunakan:
- *  - POST /api/v1/auth/login   — login dengan email + password
- *  - GET  /api/v1/auth/profile — ambil profil user yang sedang login
- *  - POST /api/v1/auth/logout  — logout dan revoke refresh token
- *
- * CATATAN PENTING:
- * Frontend lama menggunakan flow "merchantCode + operatorCode + pin + activationCode".
- * Backend K-POS menggunakan flow standar "email + password" (JWT).
- * Fungsi `activateAndLogin` dipertahankan signaturenya agar tidak merusak komponen login,
- * namun di dalam memetakan ke endpoint yang benar.
+ *  - POST /api/v1/auth/register — registrasi OWNER baru
+ *  - POST /api/v1/auth/login    — login dengan email + password
+ *  - GET  /api/v1/auth/profile  — ambil profil user yang sedang login
+ *  - POST /api/v1/auth/refresh  — refresh access token via HttpOnly cookie
+ *  - POST /api/v1/auth/logout   — logout dan revoke refresh token
  */
 
 import { loginResponseSchema } from "@/lib/contracts"
@@ -49,6 +45,15 @@ const profileResponseSchema = z.object({
   }),
 })
 
+// Schema untuk response refresh token
+export const refreshResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.object({
+    access_token: z.string(),
+  }),
+})
+
 const registerResponseSchema = z.object({
   status: z.string(),
   message: z.string(),
@@ -69,8 +74,28 @@ export async function registerOwner(input: RegisterOwnerRequest) {
     {
       method: "POST",
       body: JSON.stringify(input),
-    }
+    },
   )
+}
+
+/**
+ * Mengekstrak expiry time (exp) dari JWT payload.
+ * Fallback ke 15 menit jika token bukan JWT standar.
+ */
+export function parseJwtExpiry(token: string): string {
+  try {
+    const parts = token.split(".")
+    if (parts.length === 3) {
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+      const payload = JSON.parse(atob(base64))
+      if (typeof payload.exp === "number") {
+        return new Date(payload.exp * 1000).toISOString()
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return new Date(Date.now() + 15 * 60 * 1000).toISOString()
 }
 
 /**
@@ -92,8 +117,9 @@ export async function activateAndLogin(input: {
   })
 
   const user = result.data.user
+  const accessToken = result.data.access_token
   const session: AuthSession = {
-    token: result.data.access_token,
+    token: accessToken,
     refreshToken: result.data.refresh_token ?? "",
     // id_merchant bisa null jika user belum memiliki merchant
     merchantId: user.id_merchant ?? "",
@@ -102,22 +128,29 @@ export async function activateAndLogin(input: {
       name: user.full_name,
       role: user.role as AuthSession["operator"]["role"],
     },
-    // Access token dari backend bertahan sesuai JWT_EXPIRATION_TIME
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString(),
+    expiresAt: parseJwtExpiry(accessToken),
   }
 
   // Coba ambil device dari backend atau daftarkan jika belum ada
   try {
-    const devicesRes = await requestJson("/api/v1/devices", z.any(), {
-      method: "GET"
-    }, session.token)
-    if (devicesRes?.data && devicesRes.data.length > 0) {
+    const devicesRes = await requestJson(
+      "/api/v1/devices",
+      z.any(),
+      { method: "GET" },
+      session.token,
+    )
+    if (devicesRes?.data && Array.isArray(devicesRes.data) && devicesRes.data.length > 0) {
       input.device.id = devicesRes.data[0].id_device
     } else if (user.role === "OWNER") {
-      const createRes = await requestJson("/api/v1/devices", z.any(), {
-        method: "POST",
-        body: JSON.stringify({ name: input.device.name })
-      }, session.token)
+      const createRes = await requestJson(
+        "/api/v1/devices",
+        z.any(),
+        {
+          method: "POST",
+          body: JSON.stringify({ name: input.device.name }),
+        },
+        session.token,
+      )
       if (createRes?.data?.id_device) {
         input.device.id = createRes.data.id_device
       }
@@ -133,17 +166,48 @@ export async function activateAndLogin(input: {
 }
 
 /**
- * Mengambil data produk dari backend untuk dimasukkan ke IndexedDB.
- * Endpoint /api/v1/bootstrap belum ada di backend kita — akan kita fallback ke kosong.
- *
- * TODO: Implementasi endpoint GET /api/v1/products untuk load katalog lokal.
+ * Memanggil endpoint POST /api/v1/auth/refresh (HttpOnly cookie)
+ * dan memperbarui token sesi di IndexedDB.
  */
-export async function bootstrapLocalData(session: AuthSession, device: DeviceIdentity) {
+export async function refreshAuthSession(): Promise<AuthSession | null> {
+  const session = await (await import("@/infrastructure/persistence/session-repository")).getAuthSession()
+  if (!session) return null
+
+  const result = await requestJson(
+    "/api/v1/auth/refresh",
+    refreshResponseSchema,
+    { method: "POST" },
+    undefined,
+    true, // isRetry=true mencegah interceptor loop
+  )
+
+  const newAccessToken = result.data.access_token
+  const updatedSession: AuthSession = {
+    ...session,
+    token: newAccessToken,
+    expiresAt: parseJwtExpiry(newAccessToken),
+  }
+
+  await saveAuthSession(updatedSession)
+  return updatedSession
+}
+
+/**
+ * Mengambil data produk dari backend untuk dimasukkan ke IndexedDB.
+ * Jika koneksi gagal, sistem tetap mempertahankan katalog lokal yang sudah ada
+ * dan sesi login kasir tetap aktif (degraded offline mode).
+ */
+export async function bootstrapLocalData(session: AuthSession, _device: DeviceIdentity): Promise<Product[]> {
   await writeSetting("merchantProfile", JSON.stringify({ id: session.merchantId }))
-  const backendProducts = await fetchCatalogProducts(session.token)
-  const products = backendProducts.map(mapProduct)
-  await replaceCatalog(products)
-  return products
+  try {
+    const backendProducts = await fetchCatalogProducts(session.token)
+    const products = backendProducts.map(mapProduct)
+    await replaceCatalog(products)
+    return products
+  } catch (error) {
+    console.warn("[bootstrap] Catalog fetch failed during bootstrap; preserving existing local catalog:", error)
+    return []
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { LoginPage } from "./login-page"
@@ -31,7 +32,11 @@ describe("LoginPage Component", () => {
   })
 
   it("renders email, password inputs, and device identifier", () => {
-    render(<LoginPage device={mockDevice} onAuthenticated={vi.fn()} />)
+    render(
+      <MemoryRouter>
+        <LoginPage device={mockDevice} onAuthenticated={vi.fn()} />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByLabelText(/Email Pengguna/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Kata Sandi/i)).toBeInTheDocument()
@@ -45,7 +50,11 @@ describe("LoginPage Component", () => {
       new Error("Email atau kata sandi salah"),
     )
 
-    render(<LoginPage device={mockDevice} onAuthenticated={vi.fn()} />)
+    render(
+      <MemoryRouter>
+        <LoginPage device={mockDevice} onAuthenticated={vi.fn()} />
+      </MemoryRouter>,
+    )
 
     const submitBtn = screen.getByRole("button", { name: /Aktifkan & masuk/i })
     await user.click(submitBtn)
@@ -63,7 +72,11 @@ describe("LoginPage Component", () => {
     vi.mocked(authApi.activateAndLogin).mockResolvedValueOnce(mockSession)
     vi.mocked(authApi.bootstrapLocalData).mockResolvedValueOnce(undefined as never)
 
-    render(<LoginPage device={mockDevice} onAuthenticated={onAuthenticated} />)
+    render(
+      <MemoryRouter>
+        <LoginPage device={mockDevice} onAuthenticated={onAuthenticated} />
+      </MemoryRouter>,
+    )
 
     const emailInput = screen.getByLabelText(/Email Pengguna/i)
     const passwordInput = screen.getByLabelText(/Kata Sandi/i)

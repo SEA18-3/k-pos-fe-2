@@ -52,6 +52,19 @@ describe("requestJson", () => {
       "content-type": "text/plain",
     })
   })
+
+  it("does not force a JSON content-type for FormData bodies", async () => {
+    const fetchMock = successfulFetch()
+    vi.stubGlobal("fetch", fetchMock)
+
+    const form = new FormData()
+    form.set("name", "Mie Goreng")
+    form.set("price", "15000")
+
+    await requestJson("/products", responseSchema, { method: "POST", body: form }, "token")
+
+    expect(requestHeaders(fetchMock)).toEqual({ authorization: "Bearer token" })
+  })
 })
 
 describe("resolveApiUrl", () => {

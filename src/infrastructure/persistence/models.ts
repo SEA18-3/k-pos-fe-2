@@ -23,11 +23,11 @@ export type SyncStatus = "PENDING_SYNC" | "SYNCING" | "SYNCED" | "SYNC_FAILED" |
 export type TransactionItem = {
   productId: string
   name: string
-  sku?: string
-  catalogVersion?: string
   quantity: number
   unitPrice: number
   subtotal: number
+  sku?: string
+  catalogVersion?: string
 }
 
 export type LocalTransaction = {

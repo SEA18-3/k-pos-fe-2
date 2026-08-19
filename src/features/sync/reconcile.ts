@@ -45,11 +45,25 @@ export async function reconcileSyncStatuses(
   let updated = 0
   await database.transaction("rw", [database.transactions, database.outbox], async () => {
     for (const [offlineUuid, serverStatus] of resolved) {
+      const transaction = byOfflineUuid.get(offlineUuid)
+      if (!transaction) continue
+      const entry = await database.outbox.where("transactionId").equals(transaction.id).first()
+
+      if (serverStatus === "UNKNOWN") {
+        // Server never received this transaction (e.g. earlier network rejection).
+        // Reset stuck SYNCING state back to PENDING so sync-service will re-dispatch it.
+        if (transaction.syncStatus === "SYNCING") {
+          await database.transactions.update(transaction.id, { syncStatus: "PENDING_SYNC" })
+        }
+        if (entry && entry.status === "SYNCING") {
+          await database.outbox.update(entry.id, { status: "PENDING", nextRetryAt: undefined })
+        }
+        continue
+      }
+
       const localStatus = mapServerStatus(serverStatus)
       if (!localStatus) continue
-      const transaction = byOfflineUuid.get(offlineUuid)!
       await database.transactions.update(transaction.id, { syncStatus: localStatus })
-      const entry = await database.outbox.where("transactionId").equals(transaction.id).first()
       if (entry) {
         if (localStatus === "SYNCED") await database.outbox.delete(entry.id)
         else await database.outbox.update(entry.id, { status: "FAILED" })
