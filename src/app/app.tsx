@@ -36,6 +36,9 @@ const TransactionsPage = lazy(() =>
 const LoginPage = lazy(() =>
   import("@/features/auth/login-page").then((module) => ({ default: module.LoginPage })),
 )
+const PairingPage = lazy(() =>
+  import("@/features/auth/pairing-page").then((module) => ({ default: module.PairingPage })),
+)
 const ReconciliationPage = lazy(() =>
   import("@/features/reconciliation/reconciliation-page").then((module) => ({
     default: module.ReconciliationPage,
@@ -106,7 +109,14 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="*" element={<LoginPage device={device} onAuthenticated={setSession} />} />
+            {!device.registeredAt ? (
+              <>
+                <Route path="/login-admin" element={<LoginPage device={device} onAuthenticated={setSession} isAdminMode />} />
+                <Route path="*" element={<PairingPage device={device} onPaired={setDevice} />} />
+              </>
+            ) : (
+              <Route path="*" element={<LoginPage device={device} onAuthenticated={setSession} />} />
+            )}
           </Routes>
         </Suspense>
       </BrowserRouter>

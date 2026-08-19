@@ -76,6 +76,16 @@ const revokeDeviceResponseSchema = z.object({
   }),
 })
 
+const createDeviceResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    id_device: z.string(),
+    pairing_code: z.string(),
+    status: z.string(),
+  }),
+})
+
 // ---------------------------------------------------------------------------
 // Request Types
 // ---------------------------------------------------------------------------
@@ -142,6 +152,19 @@ export function revokeDevice(session: AuthSession, deviceId: string) {
     `/api/v1/devices/${encodeURIComponent(deviceId)}`,
     revokeDeviceResponseSchema,
     { method: "DELETE" },
+    session.token,
+  )
+}
+
+/** Tambah perangkat baru */
+export function createDevice(session: AuthSession, name: string) {
+  return requestJson(
+    "/api/v1/devices",
+    createDeviceResponseSchema,
+    {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    },
     session.token,
   )
 }

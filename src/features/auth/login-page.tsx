@@ -21,15 +21,17 @@ import { Input } from "@/shared/ui/components/input"
 export function LoginPage({
   device,
   onAuthenticated,
+  isAdminMode,
 }: {
   device: DeviceIdentity
   onAuthenticated: (session: AuthSession) => void
+  isAdminMode?: boolean
 }) {
   return (
     <main className="grain relative grid min-h-svh overflow-hidden bg-background lg:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
       <div className="app-grid pointer-events-none absolute inset-0 opacity-35" />
       <LoginHero />
-      <LoginForm device={device} onAuthenticated={onAuthenticated} />
+      <LoginForm device={device} onAuthenticated={onAuthenticated} isAdminMode={isAdminMode} />
     </main>
   )
 }
@@ -37,9 +39,11 @@ export function LoginPage({
 function LoginForm({
   device,
   onAuthenticated,
+  isAdminMode,
 }: {
   device: DeviceIdentity
   onAuthenticated: (session: AuthSession) => void
+  isAdminMode?: boolean
 }) {
   const [email, setEmail] = useState("owner@kpos.com")
   const [password, setPassword] = useState("password123")
@@ -68,10 +72,13 @@ function LoginForm({
         className="w-full max-w-[500px] rounded-2xl border bg-card/72 p-5 shadow-2xl shadow-black/35 backdrop-blur-xl sm:p-8"
       >
         <MobileBrand />
-        <h2 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">Aktifkan counter</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
+          {isAdminMode ? "Login Admin" : "Login Kasir"}
+        </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-          Aktivasi pertama butuh internet. Setelah masuk, katalog dan transaksi tetap tersedia saat
-          koneksi putus.
+          {isAdminMode 
+            ? "Masuk ke Dashboard Web untuk mengelola katalog, kasir, dan rekonsiliasi."
+            : "Masukkan email dan kata sandi operator Anda untuk mulai menggunakan aplikasi kasir."}
         </p>
 
         <div className="mt-7 grid gap-4">
@@ -101,10 +108,10 @@ function LoginForm({
           </div>
         )}
         <Button type="submit" size="lg" className="mt-6 h-12 w-full" disabled={loading}>
-          {loading ? "Mengaktifkan perangkat…" : "Aktifkan & masuk"}
+          {loading ? "Memproses…" : "Masuk"}
           <IconArrowRight />
         </Button>
-        <DeviceIdentityCard deviceId={device.id} />
+        {!isAdminMode && <DeviceIdentityCard deviceId={device.id} />}
         <p className="mt-6 text-center text-[10px] leading-5 text-muted-foreground">
           Demo: owner@kpos.com · password123
         </p>

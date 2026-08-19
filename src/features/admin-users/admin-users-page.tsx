@@ -35,6 +35,7 @@ export function AdminUsersPage() {
           currentDeviceId={currentDevice?.id}
           mutatingId={admin.mutatingId}
           onRevoke={admin.revoke}
+          onCreate={admin.addDevice}
         />
       </div>
     </div>
