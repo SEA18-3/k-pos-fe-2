@@ -34,31 +34,37 @@ export function TransactionHistoryTimeline({ transactionId }: { transactionId: s
       <div className="relative border-l border-muted ml-3 space-y-6">
         {history.map((node, index) => {
           const isLast = index === history.length - 1
+          const isCurrent = node.transaction.id === transactionId
           return (
             <div key={node.transaction.id} className="relative pl-6">
               <span className="absolute -left-2 top-1 flex size-4 items-center justify-center rounded-full bg-background border border-primary text-primary">
                 <IconEdit className="size-2.5" />
               </span>
-              <div className="grid gap-1">
+              <Link
+                to={`/transactions/${node.transaction.id}`}
+                state={{ transaction: node.transaction }}
+                className="grid gap-1 rounded-md -mx-2 px-2 py-1 transition-colors hover:bg-secondary/60"
+                onClick={(e) => isCurrent && e.preventDefault()}
+              >
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-sm font-medium">
                       {index === 0 ? "Transaksi Awal (Dibuat)" : `Koreksi #${index}`}
+                      {isCurrent && <span className="ml-2 text-[10px] text-muted-foreground">(halaman ini)</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {formatTransactionDate(node.transaction.createdAt)}
                     </div>
+                    <div className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
+                      {node.transaction.id}
+                    </div>
                   </div>
-                  <Link 
-                    to={`/transactions/${node.transaction.id}`} 
-                    state={{ transaction: node.transaction }}
-                    className="text-xs text-primary hover:underline font-mono"
-                  >
-                    {node.transaction.invoiceNumber}
-                  </Link>
+                  {!isCurrent && (
+                    <span className="text-[10px] text-primary mt-0.5">Lihat →</span>
+                  )}
                 </div>
                 {node.correction_metadata && (
-                  <div className="mt-2 rounded bg-secondary/50 p-2 text-xs">
+                  <div className="mt-1 rounded bg-secondary/50 p-2 text-xs">
                     <span className="font-medium">Alasan Koreksi: </span>
                     {node.correction_metadata.reason}
                     <div className="text-[10px] text-muted-foreground mt-1">
@@ -71,7 +77,7 @@ export function TransactionHistoryTimeline({ transactionId }: { transactionId: s
                     Versi Paling Baru (Final)
                   </div>
                 )}
-              </div>
+              </Link>
             </div>
           )
         })}

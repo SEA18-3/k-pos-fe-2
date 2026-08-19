@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { useCurrentSession } from "@/features/auth/session-queries"
 import { fetchReconciliations } from "@/features/reconciliation/reconciliation-api"
 import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
@@ -46,24 +47,34 @@ export function ReconciliationHistoryTimeline({ paymentId }: { paymentId?: strin
         {reconciliations.map((rec, index) => {
           const isOpen = rec.status === "OPEN"
           const isValid = rec.status === "RESOLVED_VALID"
+          const txId = (rec as any).payment?.transaction?.id_transaction
           return (
             <div key={rec.id_reconciliation} className="relative pl-6">
-              <span className="absolute -left-2 top-1 flex size-4 items-center justify-center rounded-full bg-background border border-amber-500 text-amber-500">
+              <span className={`absolute -left-2 top-1 flex size-4 items-center justify-center rounded-full bg-background border ${
+                isOpen ? "border-amber-500 text-amber-500" : isValid ? "border-emerald-500 text-emerald-500" : "border-red-500 text-red-500"
+              }`}>
                 {isOpen
                   ? <IconAlertCircle className="size-2.5" />
                   : isValid
-                    ? <IconCheck className="size-2.5 text-emerald-500 border-emerald-500" style={{ borderColor: "rgb(16 185 129)" }} />
-                    : <IconX className="size-2.5 text-red-500" />
+                    ? <IconCheck className="size-2.5" />
+                    : <IconX className="size-2.5" />
                 }
               </span>
-              <div className="grid gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium">
-                    Kasus #{index + 1}
-                  </span>
-                  <Badge variant={isOpen ? "warning" : isValid ? "default" : "destructive"} className="text-[10px]">
-                    {rec.status}
-                  </Badge>
+              <Link
+                to={txId ? `/transactions/${txId}` : "/reconciliation"}
+                className="grid gap-1 rounded-md -mx-2 px-2 py-1 transition-colors hover:bg-secondary/60"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium">Kasus #{index + 1}</span>
+                    <Badge variant={isOpen ? "warning" : isValid ? "default" : "destructive"} className="text-[10px]">
+                      {rec.status}
+                    </Badge>
+                  </div>
+                  <span className="text-[10px] text-primary">Lihat →</span>
+                </div>
+                <div className="text-[10px] font-mono text-muted-foreground/60">
+                  {rec.id_reconciliation}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {rec.reason} · Dibuka oleh <span className="font-medium">{rec.openedByUser?.full_name ?? rec.opened_by}</span> pada {formatTransactionDate(rec.created_at)}
@@ -79,7 +90,7 @@ export function ReconciliationHistoryTimeline({ paymentId }: { paymentId?: strin
                     </div>
                   </div>
                 )}
-              </div>
+              </Link>
             </div>
           )
         })}
