@@ -26,6 +26,8 @@ export type TransactionItem = {
   quantity: number
   unitPrice: number
   subtotal: number
+  sku?: string
+  catalogVersion?: string
 }
 
 export type LocalTransaction = {

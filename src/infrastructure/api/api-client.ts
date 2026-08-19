@@ -26,28 +26,42 @@ function toBackendPaymentMethod(method: LocalTransaction["paymentMethod"]) {
   return method === "TRANSFER" ? "BANK_TRANSFER" : method
 }
 
-export function transactionPayload(transaction: LocalTransaction, deviceId: string) {
+function resolveSkuSnapshot(sku?: string, productId?: string): string {
+  if (sku && sku.trim().length > 0) return sku.trim()
+  if (productId) {
+    const trimmedId = productId.trim()
+    if (/^[A-Z0-9_-]+$/i.test(trimmedId) && trimmedId.length <= 30 && !trimmedId.includes(" ")) {
+      return trimmedId.toUpperCase()
+    }
+    return `SKU-${trimmedId.slice(-6).toUpperCase()}`
+  }
+  return "SKU-UNKNOWN"
+}
+
+export function transactionPayload(transaction: LocalTransaction, _deviceId?: string) {
   const method = toBackendPaymentMethod(transaction.paymentMethod)
   return {
     offline_uuid: transaction.offlineUuid,
-    id_device: deviceId,
     created_at_local: transaction.createdAt,
     subtotal: transaction.subtotal,
     total: transaction.total,
-    notes: null,
+    ...(transaction.lastSyncError ? { notes: transaction.lastSyncError } : {}),
     items: transaction.items.map((item) => ({
       id_product: item.productId,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       subtotal: item.subtotal,
+      product_name: item.name || "Item Penjualan",
+      sku_snapshot: resolveSkuSnapshot(item.sku, item.productId),
+      catalog_version: item.catalogVersion || transaction.createdAt || new Date().toISOString(),
     })),
     payment: {
       method,
       amount: transaction.total,
-      cash_received: transaction.amountReceived ?? null,
-      change_amount: transaction.change ?? null,
-      qris_code: method === "STATIC_QRIS" ? (transaction.paymentReference ?? null) : null,
-      transfer_ref: method === "BANK_TRANSFER" ? (transaction.paymentReference ?? null) : null,
+      ...(transaction.amountReceived != null ? { cash_received: transaction.amountReceived } : {}),
+      ...(transaction.change != null ? { change_amount: transaction.change } : {}),
+      ...(method === "STATIC_QRIS" && transaction.paymentReference ? { qris_code: transaction.paymentReference } : {}),
+      ...(method === "BANK_TRANSFER" && transaction.paymentReference ? { transfer_ref: transaction.paymentReference } : {}),
     },
   }
 }
@@ -88,7 +102,7 @@ export async function sendTransactionBatch(
       headers: {
         "X-Device-ID": device.id,
       },
-      body: JSON.stringify({ transactions: transactions.map((t) => transactionPayload(t, device.id)) }),
+      body: JSON.stringify({ transactions: transactions.map((t) => transactionPayload(t)) }),
     },
     session.token,
   )

@@ -7,6 +7,7 @@ import {
   getAuthSession,
   isOfflineCheckoutAllowed,
 } from "@/infrastructure/persistence/session-repository"
+import { readSetting } from "@/infrastructure/persistence/settings-repository"
 import { commitLocalSale } from "@/infrastructure/persistence/transaction-repository"
 
 import { buildLocalTransaction, type ConfirmSaleInput } from "./transaction-builder"
@@ -14,7 +15,11 @@ import { buildLocalTransaction, type ConfirmSaleInput } from "./transaction-buil
 export type { ConfirmSaleInput } from "./transaction-builder"
 
 export async function confirmSale(input: ConfirmSaleInput): Promise<LocalTransaction> {
-  const [session, device] = await Promise.all([getAuthSession(), getOrCreateDeviceIdentity()])
+  const [session, device, lastBootstrapAt] = await Promise.all([
+    getAuthSession(),
+    getOrCreateDeviceIdentity(),
+    readSetting("lastBootstrapAt"),
+  ])
   if (!session) throw new Error("Session operator tidak tersedia")
   if (!isOfflineCheckoutAllowed(session)) {
     throw new Error("Lease checkout offline sudah berakhir. Hubungkan internet dan login kembali.")
@@ -29,6 +34,7 @@ export async function confirmSale(input: ConfirmSaleInput): Promise<LocalTransac
     deviceId: device.id,
     operatorId: session.operator.id,
     operatorName: session.operator.name,
+    lastBootstrapAt: lastBootstrapAt ?? undefined,
   })
 
   await draftPersistence.flush()

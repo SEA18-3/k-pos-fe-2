@@ -24,7 +24,7 @@ describe("sync retry policy", () => {
 })
 
 describe("transaction payload", () => {
-  const transaction: LocalTransaction = {
+  const modernTransaction: LocalTransaction = {
     id: "0198a123-0000-7000-8000-00000000abcd",
     invoiceNumber: "OPS-0000ABCD",
     merchantId: "merchant-1",
@@ -32,7 +32,15 @@ describe("transaction payload", () => {
     operatorId: "operator-1",
     operatorName: "Rani",
     items: [
-      { productId: "prd-aren", name: "Kopi", quantity: 2, unitPrice: 22_000, subtotal: 44_000 },
+      {
+        productId: "prd-aren",
+        name: "Kopi Susu Aren",
+        sku: "KSA-01",
+        catalogVersion: "2026-08-15T00:00:00.000Z",
+        quantity: 2,
+        unitPrice: 22_000,
+        subtotal: 44_000,
+      },
     ],
     subtotal: 44_000,
     discount: 0,
@@ -49,25 +57,59 @@ describe("transaction payload", () => {
     retryCount: 0,
   }
 
-  it("maps money as numbers and sends offline_uuid as UUID v4", () => {
-    const tx = transactionPayload(transaction, "device-1")
+  it("maps modern transaction: omits id_device from body and includes complete item snapshots", () => {
+    const tx = transactionPayload(modernTransaction)
     expect(tx.offline_uuid).toBe("f47ac10b-58cc-4372-a567-0e02b2c3d479")
-    expect(tx.id_device).toBe("device-1")
+    expect(tx).not.toHaveProperty("id_device")
     expect(tx.subtotal).toBe(44_000)
     expect(tx.total).toBe(44_000)
+    expect(tx.items[0]).toEqual({
+      id_product: "prd-aren",
+      quantity: 2,
+      unit_price: 22_000,
+      subtotal: 44_000,
+      product_name: "Kopi Susu Aren",
+      sku_snapshot: "KSA-01",
+      catalog_version: "2026-08-15T00:00:00.000Z",
+    })
   })
 
   it("nests payment method and maps TRANSFER to BANK_TRANSFER", () => {
-    const tx = transactionPayload(transaction, "device-1")
+    const tx = transactionPayload(modernTransaction)
     expect(tx.payment.method).toBe("BANK_TRANSFER")
     expect(tx.payment.amount).toBe(44_000)
     expect(tx.payment.transfer_ref).toBe("ref-1")
-    expect(tx.payment.qris_code).toBeNull()
     expect(tx.payment.cash_received).toBe(50_000)
+    expect(tx.payment.change_amount).toBe(6_000)
+  })
+
+  it("handles legacy transactions without sku and catalogVersion (backward compatibility)", () => {
+    const legacyTransaction: LocalTransaction = {
+      ...modernTransaction,
+      createdAt: "2026-08-12T10:00:00.000Z",
+      items: [
+        {
+          productId: "0198a123-0000-7000-8000-00000000abcd",
+          name: "",
+          quantity: 1,
+          unitPrice: 15_000,
+          subtotal: 15_000,
+          // sku and catalogVersion intentionally missing
+        },
+      ],
+      subtotal: 15_000,
+      total: 15_000,
+    }
+
+    const tx = transactionPayload(legacyTransaction)
+    expect(tx).not.toHaveProperty("id_device")
+    expect(tx.items[0].product_name).toBe("Item Penjualan")
+    expect(tx.items[0].sku_snapshot).toBe("SKU-00ABCD")
+    expect(tx.items[0].catalog_version).toBe("2026-08-12T10:00:00.000Z")
   })
 
   it("omits settlement-only and operator metadata fields", () => {
-    const tx = transactionPayload(transaction, "device-1")
+    const tx = transactionPayload(modernTransaction)
     expect(tx).not.toHaveProperty("settlementStatus")
     expect(tx).not.toHaveProperty("operatorName")
     expect(tx).not.toHaveProperty("invoiceNumber")
