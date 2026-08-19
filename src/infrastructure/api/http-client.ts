@@ -33,11 +33,32 @@ export class ApiError extends Error {
   }
 }
 
+let refreshPromise: Promise<string | null> | null = null
+
+async function getRefreshedToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    try {
+      const { refreshAuthSession } = await import("@/features/auth/auth-api")
+      const newSession = await refreshAuthSession()
+      return newSession ? newSession.token : null
+    } catch {
+      return null
+    } finally {
+      refreshPromise = null
+    }
+  })()
+
+  return refreshPromise
+}
+
 export async function requestJson<TSchema extends ZodType>(
   path: string,
   responseSchema: TSchema,
   init: RequestInit = {},
   token?: string,
+  isRetry = false,
 ): Promise<z.output<TSchema>> {
   let response: Response
   try {
@@ -61,6 +82,22 @@ export async function requestJson<TSchema extends ZodType>(
     })
   } catch {
     throw new ApiError("Backend tidak dapat dijangkau", 0, true, "NETWORK_UNREACHABLE")
+  }
+
+  // Handle 401 Unauthorized with single-flight silent refresh
+  const isAuthEndpoint = path.startsWith("/api/v1/auth/login") || path.startsWith("/api/v1/auth/refresh")
+  if (response.status === 401 && !isRetry && !isAuthEndpoint) {
+    const newToken = await getRefreshedToken()
+    if (newToken) {
+      // Retry original request exactly once using the fresh access token
+      const retryInit = { ...init }
+      if (init.headers) {
+        const h = new Headers(init.headers)
+        h.set("authorization", `Bearer ${newToken}`)
+        retryInit.headers = h
+      }
+      return requestJson(path, responseSchema, retryInit, newToken, true)
+    }
   }
 
   const body: unknown = await response.json().catch(() => null)

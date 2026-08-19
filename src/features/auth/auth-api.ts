@@ -49,6 +49,35 @@ const profileResponseSchema = z.object({
   }),
 })
 
+// Schema untuk response refresh token
+export const refreshResponseSchema = z.object({
+  status: z.string(),
+  message: z.string(),
+  data: z.object({
+    access_token: z.string(),
+  }),
+})
+
+/**
+ * Mengekstrak expiry time (exp) dari JWT payload.
+ * Fallback ke 15 menit jika token bukan JWT standar.
+ */
+export function parseJwtExpiry(token: string): string {
+  try {
+    const parts = token.split(".")
+    if (parts.length === 3) {
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+      const payload = JSON.parse(atob(base64))
+      if (typeof payload.exp === "number") {
+        return new Date(payload.exp * 1000).toISOString()
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return new Date(Date.now() + 15 * 60 * 1000).toISOString()
+}
+
 /**
  * Login menggunakan email dan password.
  * Fungsi ini menggantikan flow lama (merchantCode + pin + activationCode).
@@ -68,8 +97,9 @@ export async function activateAndLogin(input: {
   })
 
   const user = result.data.user
+  const accessToken = result.data.access_token
   const session: AuthSession = {
-    token: result.data.access_token,
+    token: accessToken,
     refreshToken: result.data.refresh_token ?? "",
     // id_merchant bisa null jika user belum memiliki merchant
     merchantId: user.id_merchant ?? "",
@@ -78,14 +108,40 @@ export async function activateAndLogin(input: {
       name: user.full_name,
       role: user.role as AuthSession["operator"]["role"],
     },
-    // Access token dari backend bertahan sesuai JWT_EXPIRATION_TIME
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString(),
+    expiresAt: parseJwtExpiry(accessToken),
   }
 
   await saveAuthSession(session)
   await saveDeviceIdentity({ ...input.device, registeredAt: new Date().toISOString() })
 
   return session
+}
+
+/**
+ * Memanggil endpoint POST /api/v1/auth/refresh (HttpOnly cookie)
+ * dan memperbarui token sesi di IndexedDB.
+ */
+export async function refreshAuthSession(): Promise<AuthSession | null> {
+  const session = await (await import("@/infrastructure/persistence/session-repository")).getAuthSession()
+  if (!session) return null
+
+  const result = await requestJson(
+    "/api/v1/auth/refresh",
+    refreshResponseSchema,
+    { method: "POST" },
+    undefined,
+    true, // isRetry=true mencegah interceptor loop
+  )
+
+  const newAccessToken = result.data.access_token
+  const updatedSession: AuthSession = {
+    ...session,
+    token: newAccessToken,
+    expiresAt: parseJwtExpiry(newAccessToken),
+  }
+
+  await saveAuthSession(updatedSession)
+  return updatedSession
 }
 
 /**
