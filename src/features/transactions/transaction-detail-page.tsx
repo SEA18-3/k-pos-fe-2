@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { useUiStore } from "@/app/ui-store"
@@ -20,7 +20,11 @@ import { Button } from "@/shared/ui/components/button"
 
 export function TransactionDetailPage() {
   const { id } = useParams()
-  const transaction = useLocalTransaction(id)
+  const location = useLocation()
+  // If navigated from server-mode list, the transaction is passed in router state
+  const passedTransaction = location.state?.transaction as LocalTransaction | undefined
+  const localTransaction = useLocalTransaction(passedTransaction ? undefined : id)
+  const transaction = passedTransaction ?? localTransaction
   const connection = useUiStore((state) => state.connection)
   const [voidOpen, setVoidOpen] = useState(false)
   const [correctionOpen, setCorrectionOpen] = useState(false)

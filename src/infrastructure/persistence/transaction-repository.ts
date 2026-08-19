@@ -82,3 +82,12 @@ export async function voidProvisionalTransaction(transactionId: string) {
     },
   )
 }
+
+
+export async function applyRemoteCorrection(oldTransactionId: string, newTransaction: import('./models').LocalTransaction) {
+  return database.transaction('rw', [database.transactions], async () => {
+    await database.transactions.update(oldTransactionId, { transactionStatus: 'VOIDED' })
+    await database.transactions.add(newTransaction)
+  })
+}
+

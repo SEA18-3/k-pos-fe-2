@@ -160,7 +160,7 @@ export async function activateAndLogin(input: {
   }
 
   await saveAuthSession(session)
-  await saveDeviceIdentity({ ...input.device, registeredAt: new Date().toISOString() })
+  // We no longer automatically save a registeredAt date here, the PairingPage handles device saving.
 
   return session
 }

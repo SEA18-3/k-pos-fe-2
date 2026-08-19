@@ -41,7 +41,7 @@ describe("LoginPage Component", () => {
     expect(screen.getByLabelText(/Email Pengguna/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Kata Sandi/i)).toBeInTheDocument()
     expect(screen.getByText("dev-test-1234")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Aktifkan & masuk/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Masuk/i })).toBeInTheDocument()
   })
 
   it("displays error message banner when authentication fails", async () => {
@@ -56,7 +56,7 @@ describe("LoginPage Component", () => {
       </MemoryRouter>,
     )
 
-    const submitBtn = screen.getByRole("button", { name: /Aktifkan & masuk/i })
+    const submitBtn = screen.getByRole("button", { name: /Masuk/i })
     await user.click(submitBtn)
 
     await waitFor(() => {
@@ -87,7 +87,7 @@ describe("LoginPage Component", () => {
     await user.clear(passwordInput)
     await user.type(passwordInput, "password123")
 
-    const submitBtn = screen.getByRole("button", { name: /Aktifkan & masuk/i })
+    const submitBtn = screen.getByRole("button", { name: /Masuk/i })
     await user.click(submitBtn)
 
     await waitFor(() => {

@@ -44,7 +44,7 @@ function RegisterForm() {
         password,
         merchant_name: merchantName,
       })
-      navigate("/", { replace: true })
+      navigate("/login-admin", { replace: true })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Registrasi gagal")
     } finally {

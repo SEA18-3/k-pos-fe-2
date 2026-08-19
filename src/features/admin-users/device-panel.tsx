@@ -2,6 +2,7 @@ import type { AdminDevice } from "@/features/admin-users/admin-users-api"
 import { IconDeviceDesktop, IconUnlink } from "@tabler/icons-react"
 
 import { formatDateTime } from "@/shared/lib/format"
+import { CreateDeviceForm } from "@/features/admin-users/create-device-form"
 import { Button } from "@/shared/ui/components/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/components/card"
 
@@ -10,6 +11,7 @@ export function DevicePanel(props: {
   currentDeviceId?: string
   mutatingId: string | null
   onRevoke: (device: AdminDevice) => Promise<unknown>
+  onCreate: (name: string) => Promise<{ data?: { pairing_code: string } } | false>
 }) {
   return (
     <Card className="overflow-hidden">
@@ -18,6 +20,7 @@ export function DevicePanel(props: {
           <IconDeviceDesktop className="size-4 text-primary" /> Device terdaftar
         </CardTitle>
       </CardHeader>
+      <CreateDeviceForm busy={props.mutatingId === "create-device"} onCreate={props.onCreate} />
       <CardContent className="divide-y p-0">
         {props.devices.map((device) => {
           const current = device.id_device === props.currentDeviceId

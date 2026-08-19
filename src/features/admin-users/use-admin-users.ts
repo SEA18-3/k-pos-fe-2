@@ -3,6 +3,7 @@ import type { AdminDevice, AdminOperator, CreateOperatorRequest } from "@/featur
 import { toast } from "sonner"
 
 import {
+  createDevice,
   createOperator,
   fetchDevices,
   fetchOperators,
@@ -37,13 +38,13 @@ export function useAdminUsers() {
 
   useEffect(() => void refresh(), [refresh])
 
-  async function run(id: string, action: () => Promise<unknown>, success: string) {
+  async function run<T>(id: string, action: () => Promise<T>, success: string): Promise<T | false> {
     setMutatingId(id)
     try {
-      await action()
+      const res = await action()
       toast.success(success)
       await refresh()
-      return true
+      return res
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Perubahan gagal disimpan")
       return false
@@ -59,10 +60,11 @@ export function useAdminUsers() {
     loading,
     mutatingId,
     refresh,
-    create: (input: CreateOperatorRequest) =>
-      session
-        ? run("create", () => createOperator(session, input), "Akun operator dibuat")
-        : Promise.resolve(false),
+    create: async (input: CreateOperatorRequest): Promise<boolean> => {
+      if (!session) return false
+      const result = await run("create", () => createOperator(session, input), "Akun operator dibuat")
+      return Boolean(result)
+    },
     setActive: (operator: AdminOperator, active: boolean) =>
       session
         ? run(
@@ -79,5 +81,9 @@ export function useAdminUsers() {
       session
         ? run(device.id_device, () => revokeDevice(session, device.id_device), "Perangkat dicabut")
         : Promise.resolve(false),
+    addDevice: (name: string) =>
+      session
+        ? run("create-device", () => createDevice(session, name), "Perangkat berhasil ditambahkan")
+        : Promise.resolve(false as const),
   }
 }

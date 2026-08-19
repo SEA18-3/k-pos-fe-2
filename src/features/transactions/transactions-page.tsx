@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { IconArrowRight, IconClock, IconCloudCheck, IconSearch } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 
-import { useLocalTransactions } from "@/features/transactions/transaction-queries"
+import { useLocalTransactions, useServerTransactions } from "@/features/transactions/transaction-queries"
 import type { LocalTransaction } from "@/infrastructure/persistence/models"
 import { formatCurrency, formatTransactionDate, paymentLabels } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
@@ -10,6 +10,7 @@ import { Card } from "@/shared/ui/components/card"
 import { Input } from "@/shared/ui/components/input"
 import { PageHeader } from "@/shared/ui/page-header"
 import { SyncBadge } from "@/shared/ui/status-badge"
+import { useCurrentSession } from "@/features/auth/session-queries"
 
 type Filter = "ALL" | "PENDING" | "SYNCED" | "FAILED" | "VOIDED"
 const filters: Array<{ value: Filter; label: string }> = [
@@ -21,7 +22,15 @@ const filters: Array<{ value: Filter; label: string }> = [
 ]
 
 export function TransactionsPage() {
-  const transactions = useLocalTransactions()
+  const session = useCurrentSession()
+  const isOwner = session?.operator?.role === "OWNER"
+  const [dataSource, setDataSource] = useState<"LOCAL" | "SERVER">("LOCAL")
+
+  const localTransactions = useLocalTransactions()
+  const serverQuery = useServerTransactions(session ?? null, dataSource === "SERVER")
+
+  const transactions = dataSource === "SERVER" ? (serverQuery.data || []) : localTransactions
+
   const [filter, setFilter] = useState<Filter>("ALL")
   const [query, setQuery] = useState("")
   const filtered = useMemo(
@@ -39,29 +48,61 @@ export function TransactionsPage() {
     (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
   ).length
 
+  const sourceToggle = isOwner ? (
+    <div className="flex gap-1 rounded-md border bg-muted p-0.5">
+      <button
+        onClick={() => setDataSource("LOCAL")}
+        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "LOCAL" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        Lokal
+      </button>
+      <button
+        onClick={() => setDataSource("SERVER")}
+        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "SERVER" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+      >
+        Server (Live)
+      </button>
+    </div>
+  ) : undefined
+
   return (
     <div>
       <PageHeader
         title="Transaksi"
         description="Semua penjualan dari perangkat ini, termasuk status sinkronisasi saat offline."
+        actions={sourceToggle}
       />
-      <TransactionMetrics transactions={transactions} provisional={provisional} />
-      <TransactionToolbar
-        transactions={transactions}
-        filter={filter}
-        query={query}
-        onFilter={setFilter}
-        onQuery={setQuery}
-      />
-      <TransactionTable transactions={filtered} />
-      <MobileTransactionList transactions={filtered} />
-      {filtered.length === 0 && (
-        <div className="grid min-h-80 place-items-center text-center">
-          <div>
-            <p className="text-sm font-medium">Tidak ada transaksi</p>
-            <p className="mt-1 text-xs text-muted-foreground">Coba ubah filter atau pencarian.</p>
-          </div>
+
+      {dataSource === "SERVER" && serverQuery.isLoading && (
+        <div className="p-8 text-center text-muted-foreground">Mengambil transaksi dari server...</div>
+      )}
+
+      {dataSource === "SERVER" && serverQuery.error && (
+        <div className="p-8 text-center text-red-500">
+          <strong>Error:</strong> {serverQuery.error instanceof Error ? serverQuery.error.message : String(serverQuery.error)}
         </div>
+      )}
+
+      {!(dataSource === "SERVER" && serverQuery.isLoading) && (
+        <>
+          <TransactionMetrics transactions={transactions} provisional={provisional} />
+          <TransactionToolbar
+            transactions={transactions}
+            filter={filter}
+            query={query}
+            onFilter={setFilter}
+            onQuery={setQuery}
+          />
+          <TransactionTable transactions={filtered} />
+          <MobileTransactionList transactions={filtered} />
+          {filtered.length === 0 && (
+            <div className="grid min-h-80 place-items-center text-center">
+              <div>
+                <p className="text-muted-foreground">Belum ada transaksi</p>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -74,7 +115,8 @@ function TransactionMetrics({
   transactions: LocalTransaction[]
   provisional: number
 }) {
-  const total = transactions.reduce((sum, item) => sum + item.total, 0)
+  const validTransactions = transactions.filter(t => t.transactionStatus !== "VOIDED")
+  const total = validTransactions.reduce((sum, item) => sum + item.total, 0)
   return (
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
       <Metric label="Nilai transaksi" value={formatCurrency(total)} />
@@ -161,7 +203,12 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>{formatTransactionDate(transaction.createdAt)}</td>
                 <td>{paymentLabels[transaction.paymentMethod]}</td>
                 <td>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
+                    {transaction.transactionStatus === "VOIDED" && (
+                      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                        Voided
+                      </span>
+                    )}
                     <SyncBadge status={transaction.syncStatus} />
                   </div>
                 </td>
@@ -169,6 +216,7 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>
                   <Link
                     to={`/transactions/${transaction.id}`}
+                    state={{ transaction }}
                     className="grid size-8 place-items-center"
                   >
                     <IconArrowRight className="size-4" />
@@ -187,7 +235,7 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
   return (
     <div className="grid gap-2 p-4 sm:hidden">
       {transactions.map((transaction) => (
-        <Link key={transaction.id} to={`/transactions/${transaction.id}`}>
+        <Link key={transaction.id} to={`/transactions/${transaction.id}`} state={{ transaction }}>
           <Card className="grid gap-3 p-3">
             <div className="flex justify-between">
               <div>
@@ -202,7 +250,12 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
               <span className="text-[10px] text-muted-foreground">
                 {paymentLabels[transaction.paymentMethod]}
               </span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
+                {transaction.transactionStatus === "VOIDED" && (
+                  <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                    Voided
+                  </span>
+                )}
                 <SyncBadge status={transaction.syncStatus} />
               </div>
             </div>
