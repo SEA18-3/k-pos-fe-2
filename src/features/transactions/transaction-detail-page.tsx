@@ -8,6 +8,7 @@ import { syncService } from "@/features/sync/sync-runtime"
 import { voidProvisionalSale } from "@/features/transactions/transaction-actions"
 import { fetchServerTransaction } from "@/features/transactions/transaction-api"
 import { TransactionFinancialDetails } from "@/features/transactions/transaction-detail-content"
+import { TransactionHistoryTimeline } from "@/features/transactions/transaction-history-timeline"
 import { TransactionDetailHeader } from "@/features/transactions/transaction-detail-header"
 import {
   TransactionLifecycle,
@@ -95,7 +96,10 @@ export function TransactionDetailPage() {
         onDispute={() => setDisputeOpen(true)}
       />
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <TransactionFinancialDetails transaction={transaction} />
+        <div className="grid gap-4 content-start">
+          <TransactionFinancialDetails transaction={transaction} />
+          <TransactionHistoryTimeline transactionId={transaction.id} />
+        </div>
         <TransactionLifecycle transaction={transaction} events={lifecycleEvents(transaction)} />
       </div>
       <VoidTransactionDialog

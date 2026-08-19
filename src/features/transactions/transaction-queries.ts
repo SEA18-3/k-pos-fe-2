@@ -11,7 +11,7 @@ export function useLocalTransaction(id?: string | null) {
 }
 
 import { useState, useEffect } from "react"
-import { fetchServerTransactions } from "./transaction-api"
+import { fetchServerTransactions, fetchTransactionHistory } from "./transaction-api"
 import type { AuthSession } from "@/infrastructure/persistence/models"
 
 export function useServerTransactions(session: AuthSession | null, enabled: boolean) {
@@ -42,3 +42,22 @@ export function useServerTransactions(session: AuthSession | null, enabled: bool
 
   return { data, isLoading, error, refetch: () => setTick(t => t + 1) }
 }
+
+export function useTransactionHistory(session: AuthSession | null, id: string | null) {
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchTransactionHistory>> | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    if (!id || !session) return
+    setIsLoading(true)
+    setError(null)
+    fetchTransactionHistory(session, id)
+      .then(setData)
+      .catch(setError)
+      .finally(() => setIsLoading(false))
+  }, [id, session])
+
+  return { data, isLoading, error }
+}
+

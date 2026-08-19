@@ -111,3 +111,41 @@ export function fetchServerTransaction(session: AuthSession, id: string): Promis
   ).then((res) => mapServerTransaction(res.data || res, session))
 }
 
+export type TransactionHistoryNode = {
+  transaction: LocalTransaction
+  correction_metadata: {
+    reason: string
+    corrected_at: string
+    corrected_by: string
+  } | null
+}
+
+const fetchHistoryResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  data: z.array(z.object({
+    transaction: transactionSchema,
+    correction_metadata: z.object({
+      reason: z.string(),
+      corrected_at: z.string(),
+      corrected_by: z.string(),
+    }).nullable(),
+  })).optional(),
+}).passthrough()
+
+export function fetchTransactionHistory(session: AuthSession, id: string): Promise<TransactionHistoryNode[]> {
+  return requestJson(
+    `/api/v1/transactions/${encodeURIComponent(id)}/history`,
+    fetchHistoryResponseSchema,
+    { method: "GET", cache: "no-store" },
+    session.token,
+  ).then((res) => {
+    const arr = res.data || (res as any)
+    if (!Array.isArray(arr)) return []
+    return arr.map((item: any) => ({
+      transaction: mapServerTransaction(item.transaction, session),
+      correction_metadata: item.correction_metadata,
+    }))
+  })
+}
+
