@@ -120,18 +120,7 @@ export type TransactionHistoryNode = {
   } | null
 }
 
-const fetchHistoryResponseSchema = z.object({
-  status: z.string().optional(),
-  message: z.string().optional(),
-  data: z.array(z.object({
-    transaction: transactionSchema,
-    correction_metadata: z.object({
-      reason: z.string(),
-      corrected_at: z.string(),
-      corrected_by: z.string(),
-    }).nullable(),
-  })).optional(),
-}).passthrough()
+const fetchHistoryResponseSchema = z.any()
 
 export function fetchTransactionHistory(session: AuthSession, id: string): Promise<TransactionHistoryNode[]> {
   return requestJson(
