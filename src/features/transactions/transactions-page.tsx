@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { IconArrowRight, IconClock, IconCloudCheck, IconSearch } from "@tabler/icons-react"
+import { IconArrowRight, IconClock, IconCloudCheck, IconSearch, IconRefresh } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 
 import { useLocalTransactions, useServerTransactions } from "@/features/transactions/transaction-queries"
@@ -48,14 +48,25 @@ export function TransactionsPage() {
     (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
   ).length
 
-  const sourceToggle = undefined
+  const refreshAction = isOwner ? (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => serverQuery.refetch()}
+      disabled={serverQuery.isLoading}
+      className="bg-card text-foreground"
+    >
+      <IconRefresh className={`mr-2 size-4 ${serverQuery.isLoading ? "animate-spin" : ""}`} />
+      Refresh
+    </Button>
+  ) : undefined
 
   return (
     <div>
       <PageHeader
         title="Transaksi"
         description="Semua penjualan dari perangkat ini, termasuk status sinkronisasi saat offline."
-        actions={sourceToggle}
+        actions={refreshAction}
       />
 
       {dataSource === "SERVER" && serverQuery.isLoading && (

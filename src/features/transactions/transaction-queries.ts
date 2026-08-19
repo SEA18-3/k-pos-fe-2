@@ -18,6 +18,7 @@ export function useServerTransactions(session: AuthSession | null, enabled: bool
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchServerTransactions>> | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
     if (!enabled || !session) {
@@ -37,7 +38,7 @@ export function useServerTransactions(session: AuthSession | null, enabled: bool
         setError(err)
       })
       .finally(() => setIsLoading(false))
-  }, [enabled, session])
+  }, [enabled, session, tick])
 
-  return { data, isLoading, error }
+  return { data, isLoading, error, refetch: () => setTick(t => t + 1) }
 }
