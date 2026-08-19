@@ -7,9 +7,14 @@ import { Link } from "react-router-dom"
 
 export function TransactionHistoryTimeline({ transactionId }: { transactionId: string }) {
   const session = useCurrentSession()
-  const { data: history, isLoading } = useTransactionHistory(session ?? null, transactionId)
+  const { data: history, isLoading, error } = useTransactionHistory(session ?? null, transactionId)
 
   if (isLoading) return <div className="text-xs text-muted-foreground p-4 animate-pulse">Memuat riwayat koreksi...</div>
+  
+  if (error) {
+    return <div className="text-xs text-destructive p-4">Error memuat riwayat: {error.message}</div>
+  }
+
   if (!history) return null
 
   if (history.length <= 1) {
@@ -19,6 +24,10 @@ export function TransactionHistoryTimeline({ transactionId }: { transactionId: s
         <p className="text-xs text-muted-foreground">
           Transaksi ini belum pernah dikoreksi (masih versi asli).
         </p>
+        <pre className="mt-4 text-[10px] bg-secondary p-2 rounded max-h-40 overflow-auto">
+          DEBUG ID: {transactionId}{"\n"}
+          DEBUG DATA: {JSON.stringify(history, null, 2)}
+        </pre>
       </Card>
     )
   }
