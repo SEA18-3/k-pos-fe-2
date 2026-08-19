@@ -186,8 +186,8 @@ function LoginField({
 function MobileBrand() {
   return (
     <div className="mb-8 flex items-center gap-3 lg:hidden">
-      <img src="/brand/compos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
-      <span className="text-sm font-semibold tracking-[0.12em]">COMPOS</span>
+      <img src="/brand/k-pos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
+      <span className="text-sm font-semibold tracking-[0.12em]">K-POS</span>
     </div>
   )
 }
@@ -202,8 +202,8 @@ function LoginHero() {
   return (
     <section className="relative hidden min-w-0 flex-col justify-between gap-8 p-8 lg:flex xl:p-12">
       <div className="flex items-center gap-3">
-        <img src="/brand/compos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
-        <span className="text-base font-semibold tracking-[0.12em]">COMPOS</span>
+        <img src="/brand/k-pos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
+        <span className="text-base font-semibold tracking-[0.12em]">K-POS</span>
       </div>
 
       <div className="max-w-5xl">
@@ -214,13 +214,13 @@ function LoginHero() {
           <span className="text-primary">.</span>
         </h1>
         <p className="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground xl:text-base xl:leading-7">
-          COMPOS menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
+          k-pos menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
           koneksi kembali tersedia.
         </p>
 
         <div className="mt-8 overflow-hidden rounded-2xl border bg-card/35 shadow-2xl shadow-black/20">
           <img
-            src="/brand/compos-login-flow.png"
+            src="/brand/k-pos-login-flow.png"
             alt="Alur transaksi dari kasir ke outbox lokal lalu tersinkron ke backend"
             className="aspect-[2.6/1] w-full object-cover"
           />
