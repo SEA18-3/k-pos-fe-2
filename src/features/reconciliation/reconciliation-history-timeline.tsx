@@ -1,33 +1,35 @@
 import { useState, useEffect } from "react"
 import { useCurrentSession } from "@/features/auth/session-queries"
-import { fetchReconciliationHistory } from "@/features/reconciliation/reconciliation-api"
-import type { ReconciliationHistoryData } from "@/features/reconciliation/reconciliation-api"
+import { fetchReconciliations } from "@/features/reconciliation/reconciliation-api"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 import { formatTransactionDate } from "@/shared/lib/format"
 import { Card } from "@/shared/ui/components/card"
 import { Badge } from "@/shared/ui/components/badge"
 import { IconAlertCircle, IconCheck, IconX } from "@tabler/icons-react"
 
-function useReconciliationHistory(paymentId: string | null | undefined) {
+function usePaymentReconciliations(paymentId: string | null | undefined) {
   const session = useCurrentSession()
-  const [data, setData] = useState<ReconciliationHistoryData | null>(null)
+  const [data, setData] = useState<ReconciliationRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     if (!paymentId || !session) return
     setIsLoading(true)
-    setError(null)
-    fetchReconciliationHistory(session, paymentId)
-      .then(setData)
-      .catch(setError)
+    fetchReconciliations(session)
+      .then((res) => {
+        // Filter by payment id
+        const filtered = res.data.filter((r) => r.id_payment === paymentId)
+        setData(filtered)
+      })
+      .catch(() => setData([]))
       .finally(() => setIsLoading(false))
   }, [paymentId, session])
 
-  return { data, isLoading, error }
+  return { data, isLoading }
 }
 
 export function ReconciliationHistoryTimeline({ paymentId }: { paymentId?: string | null }) {
-  const { data, isLoading } = useReconciliationHistory(paymentId)
+  const { data: reconciliations, isLoading } = usePaymentReconciliations(paymentId)
 
   if (!paymentId) return null
   if (isLoading) return (
@@ -35,13 +37,13 @@ export function ReconciliationHistoryTimeline({ paymentId }: { paymentId?: strin
       <div className="text-xs text-muted-foreground animate-pulse">Memuat riwayat rekonsiliasi...</div>
     </Card>
   )
-  if (!data || !data.history || data.history.length === 0) return null
+  if (reconciliations.length === 0) return null
 
   return (
     <Card className="p-4 mt-4">
       <h3 className="font-semibold text-sm mb-4">Riwayat Rekonsiliasi Pembayaran</h3>
       <div className="relative border-l border-muted ml-3 space-y-5">
-        {data.history.map((rec, index) => {
+        {reconciliations.map((rec, index) => {
           const isOpen = rec.status === "OPEN"
           const isValid = rec.status === "RESOLVED_VALID"
           return (
