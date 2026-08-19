@@ -139,6 +139,7 @@ export function TransactionCorrectionDialog(props: {
           notes: notes.trim() ? notes.trim() : undefined,
           items: items.map((item) => ({
             id_product: item.id_product,
+            product_name: item.name,
             quantity: item.quantity,
             unit_price: item.unit_price,
             subtotal: item.subtotal,
