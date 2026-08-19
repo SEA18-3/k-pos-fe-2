@@ -49,6 +49,7 @@ export type LocalTransaction = {
   transactionStatus: "CONFIRMED" | "VOIDED"
   syncStatus: SyncStatus
   offlineUuid: string
+  backendId?: string
   createdAt: string
   receivedAtBackend?: string
   retryCount: number

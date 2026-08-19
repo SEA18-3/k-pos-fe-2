@@ -26,7 +26,7 @@ export async function reconcileSyncStatuses(
   
   // Chunk requests to avoid too long URLs (e.g. max 50 uuids per request)
   const chunkSize = 50
-  const resolved = new Map<string, string>()
+  const resolved = new Map<string, { status: string; backendId: string | null }>()
   
   for (let i = 0; i < offlineUuids.length; i += chunkSize) {
     const chunk = offlineUuids.slice(i, i + chunkSize)
@@ -34,7 +34,7 @@ export async function reconcileSyncStatuses(
       const statuses = await fetchSyncStatus({ token: session.token }, chunk)
       for (const item of statuses) {
         if (item.status !== "PENDING") {
-          resolved.set(item.offline_uuid, item.status)
+          resolved.set(item.offline_uuid, { status: item.status, backendId: item.transaction_id })
         }
       }
     } catch (error) {
@@ -44,7 +44,8 @@ export async function reconcileSyncStatuses(
 
   let updated = 0
   await database.transaction("rw", [database.transactions, database.outbox], async () => {
-    for (const [offlineUuid, serverStatus] of resolved) {
+    for (const [offlineUuid, result] of resolved) {
+      const serverStatus = result.status
       const transaction = byOfflineUuid.get(offlineUuid)
       if (!transaction) continue
       const entry = await database.outbox.where("transactionId").equals(transaction.id).first()
@@ -63,7 +64,9 @@ export async function reconcileSyncStatuses(
 
       const localStatus = mapServerStatus(serverStatus)
       if (!localStatus) continue
-      await database.transactions.update(transaction.id, { syncStatus: localStatus })
+      const updateData: Partial<LocalTransaction> = { syncStatus: localStatus }
+      if (result.backendId) updateData.backendId = result.backendId
+      await database.transactions.update(transaction.id, updateData)
       if (entry) {
         if (localStatus === "SYNCED") await database.outbox.delete(entry.id)
         else await database.outbox.update(entry.id, { status: "FAILED" })

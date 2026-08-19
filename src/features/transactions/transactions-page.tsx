@@ -181,6 +181,11 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
               <tr key={transaction.id} className="bg-card/40 hover:bg-accent/60">
                 <td className="px-3 py-3">
                   <strong>{transaction.invoiceNumber}</strong>
+                  {transaction.backendId && (
+                    <div className="mt-0.5 text-[9px] font-mono text-muted-foreground">
+                      BE: {transaction.backendId}
+                    </div>
+                  )}
                   <div className="mt-1 text-[10px] text-muted-foreground">
                     {transaction.items.length > 0
                       ? `${transaction.items.length} jenis`
@@ -227,6 +232,11 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
             <div className="flex justify-between">
               <div>
                 <div className="text-xs font-semibold">{transaction.invoiceNumber}</div>
+                {transaction.backendId && (
+                  <div className="text-[9px] font-mono text-muted-foreground">
+                    BE: {transaction.backendId}
+                  </div>
+                )}
                 <div className="mt-1 text-[10px] text-muted-foreground">
                   {formatTransactionDate(transaction.createdAt)}
                 </div>
