@@ -1,9 +1,13 @@
-import { IconAlertTriangle, IconCloudCheck, IconDatabase, IconRefresh } from "@tabler/icons-react"
+import { IconAlertTriangle, IconCloudCheck, IconDatabase, IconRefresh, IconServerOff } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useState, useEffect } from "react"
 
 import { useUiStore } from "@/app/ui-store"
+import { useCurrentSession } from "@/features/auth/session-queries"
 import { useSyncSnapshot } from "@/features/sync/sync-queries"
 import { syncService } from "@/features/sync/sync-runtime"
+import { fetchFailedSyncQueues } from "@/features/transactions/transaction-api"
+import type { FailedSyncQueueItem } from "@/features/transactions/transaction-api"
 import type { LocalTransaction, OutboxEntry } from "@/infrastructure/persistence/models"
 import { formatCurrency, formatTransactionDate, fromNow } from "@/shared/lib/format"
 import { Badge } from "@/shared/ui/components/badge"
@@ -14,12 +18,25 @@ import { ConnectionBadge, SyncBadge } from "@/shared/ui/status-badge"
 
 export function SyncPage() {
   const connection = useUiStore((state) => state.connection)
+  const session = useCurrentSession()
   const { attempts, device, lastSync, outbox, transactions } = useSyncSnapshot()
   const queued = outbox.flatMap((entry) => {
     const transaction = transactions.find((item) => item.id === entry.transactionId)
     return transaction ? [{ entry, transaction }] : []
   })
   const failed = outbox.filter((entry) => entry.status === "FAILED").length
+
+  const [serverFailedQueues, setServerFailedQueues] = useState<FailedSyncQueueItem[]>([])
+  const [loadingServerQueue, setLoadingServerQueue] = useState(false)
+
+  useEffect(() => {
+    if (!session) return
+    setLoadingServerQueue(true)
+    fetchFailedSyncQueues(session)
+      .then(setServerFailedQueues)
+      .catch(() => setServerFailedQueues([]))
+      .finally(() => setLoadingServerQueue(false))
+  }, [session])
 
   async function retryAll() {
     if (connection !== "ONLINE") {
@@ -51,11 +68,14 @@ export function SyncPage() {
         lastSync={lastSync?.value}
       />
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <QueueCard
-          queued={queued}
-          online={connection === "ONLINE"}
-          onRetry={(id) => void syncService.retry(id)}
-        />
+        <div className="grid gap-4 content-start">
+          <QueueCard
+            queued={queued}
+            online={connection === "ONLINE"}
+            onRetry={(id) => void syncService.retry(id)}
+          />
+          <ServerFailedQueueCard items={serverFailedQueues} loading={loadingServerQueue} />
+        </div>
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>Device diagnostics</CardTitle>
@@ -188,5 +208,71 @@ function Diagnostic({ label, value, mono }: { label: string; value: string; mono
       <span className="text-muted-foreground">{label}</span>
       <span className={mono ? "truncate font-mono text-[9px]" : "text-right"}>{value}</span>
     </div>
+  )
+}
+
+function ServerFailedQueueCard(props: {
+  items: FailedSyncQueueItem[]
+  loading: boolean
+}) {
+  if (props.loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Server Failed Sync Queue</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-xs text-muted-foreground animate-pulse py-4 text-center">
+            Memuat data dari server…
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Server Failed Sync Queue</CardTitle>
+        <Badge variant={props.items.length ? "destructive" : "success"}>
+          {props.items.length ? `${props.items.length} gagal` : "Bersih"}
+        </Badge>
+      </CardHeader>
+      <CardContent className="p-0">
+        {props.items.length === 0 ? (
+          <div className="grid min-h-40 place-items-center text-center">
+            <div>
+              <IconCloudCheck className="mx-auto mb-2 size-7 text-emerald-400" />
+              <p className="text-xs font-medium">Tidak ada sinkronisasi yang gagal di server</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">Semua antrean kasir sudah berhasil masuk ke database.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y">
+            {props.items.map((item) => (
+              <div key={item.id} className="p-3 grid gap-1">
+                <div className="flex items-center gap-2">
+                  <IconServerOff className="size-3.5 text-red-400 shrink-0" />
+                  <span className="text-xs font-mono font-semibold truncate">
+                    {item.offline_uuid ?? item.id_transaction ?? item.id}
+                  </span>
+                  <Badge variant="destructive" className="text-[10px] shrink-0">{item.status}</Badge>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Device: <span className="font-medium">{item.device?.name ?? item.id_device}</span>
+                  {" · "}Retry: {item.retry_count}/{item.max_retries}
+                  {" · "}Operasi: {item.operation}
+                </div>
+                {item.last_error && (
+                  <div className="mt-1 rounded bg-red-500/10 px-2 py-1 text-[10px] text-red-400 font-mono break-all">
+                    {item.last_error}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

@@ -248,3 +248,25 @@ export function createCorrection(
 
 /** Alias createCorrection */
 export const correctTransaction = createCorrection
+
+const reconciliationHistoryResponseSchema = z.object({
+  payment_id: z.string(),
+  transaction_id: z.string(),
+  history: z.array(reconciliationSchema),
+}).passthrough()
+
+export type ReconciliationHistoryData = z.output<typeof reconciliationHistoryResponseSchema>
+
+/** Fetch riwayat rekonsiliasi pembayaran berdasarkan id payment */
+export function fetchReconciliationHistory(session: AuthSession, paymentId: string): Promise<ReconciliationHistoryData> {
+  return requestJson(
+    `/api/v1/reconciliations/payment/${encodeURIComponent(paymentId)}`,
+    z.object({
+      status: z.string().optional(),
+      message: z.string().optional(),
+      data: reconciliationHistoryResponseSchema.optional(),
+    }).passthrough(),
+    { method: "GET", cache: "no-store" },
+    session.token,
+  ).then(res => res.data || (res as any))
+}

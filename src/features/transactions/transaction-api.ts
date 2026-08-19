@@ -138,3 +138,32 @@ export function fetchTransactionHistory(session: AuthSession, id: string): Promi
   })
 }
 
+export type FailedSyncQueueItem = {
+  id: string
+  id_device: string
+  id_transaction: string | null
+  offline_uuid: string | null
+  operation: string
+  payload: string
+  retry_count: number
+  max_retries: number
+  last_error: string | null
+  status: string
+  created_at: string
+  updated_at: string
+  device?: { name: string } | null
+}
+
+const failedSyncQueueSchema = z.any()
+
+export function fetchFailedSyncQueues(session: AuthSession): Promise<FailedSyncQueueItem[]> {
+  return requestJson(
+    "/api/v1/sync/failed-queues",
+    failedSyncQueueSchema,
+    { method: "GET", cache: "no-store" },
+    session.token,
+  ).then((res: any) => {
+    const arr = res.data || (Array.isArray(res) ? res : [])
+    return Array.isArray(arr) ? arr : []
+  })
+}

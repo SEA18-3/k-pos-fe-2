@@ -9,6 +9,7 @@ import { voidProvisionalSale } from "@/features/transactions/transaction-actions
 import { fetchServerTransaction } from "@/features/transactions/transaction-api"
 import { TransactionFinancialDetails } from "@/features/transactions/transaction-detail-content"
 import { TransactionHistoryTimeline } from "@/features/transactions/transaction-history-timeline"
+import { ReconciliationHistoryTimeline } from "@/features/reconciliation/reconciliation-history-timeline"
 import { TransactionDetailHeader } from "@/features/transactions/transaction-detail-header"
 import {
   TransactionLifecycle,
@@ -99,6 +100,7 @@ export function TransactionDetailPage() {
         <div className="grid gap-4 content-start">
           <TransactionFinancialDetails transaction={transaction} />
           <TransactionHistoryTimeline transactionId={transaction.id} />
+          <ReconciliationHistoryTimeline paymentId={(transaction as any).paymentId} />
         </div>
         <TransactionLifecycle transaction={transaction} events={lifecycleEvents(transaction)} />
       </div>
