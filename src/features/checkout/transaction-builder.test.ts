@@ -26,7 +26,7 @@ describe("transaction builder", () => {
     )
 
     expect(sale).toMatchObject({
-      invoiceNumber: "OPS-0000ABCD",
+      invoiceNumber: "0198a123-0000-7000-8000-00000000abcd",
       subtotal: 44_000,
       total: 44_000,
       change: 6_000,
@@ -64,7 +64,7 @@ describe("transaction builder", () => {
     expect(sale2.items[0].catalogVersion).toBe("2026-08-16T08:00:00.000Z")
   })
 
-  it("uses the random UUID tail so concurrent devices do not share invoice numbers", () => {
+  it("uses the UUID directly as the invoice number", () => {
     expect(invoiceNumberFor("0198a123-0000-7000-8000-00000000abcd")).not.toBe(
       invoiceNumberFor("0198a123-0000-7000-8000-00000000ef01"),
     )

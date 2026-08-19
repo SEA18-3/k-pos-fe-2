@@ -59,5 +59,5 @@ export function buildLocalTransaction(
 }
 
 export function invoiceNumberFor(transactionId: string) {
-  return `OPS-${transactionId.replaceAll("-", "").slice(-8).toUpperCase()}`
+  return transactionId
 }

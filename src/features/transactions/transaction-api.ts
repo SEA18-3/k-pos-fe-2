@@ -65,7 +65,7 @@ export function mapServerTransaction(tx: any, session: AuthSession): LocalTransa
 
   return {
     id: tx.id_transaction,
-    invoiceNumber: `SRV-${tx.id_transaction.replaceAll("-", "").slice(-8).toUpperCase()}`,
+    invoiceNumber: tx.id_transaction,
     merchantId: session.merchantId,
     deviceId: tx.id_device || "server",
     operatorId: tx.id_user || "server",

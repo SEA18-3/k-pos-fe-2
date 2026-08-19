@@ -24,7 +24,7 @@ const filters: Array<{ value: Filter; label: string }> = [
 export function TransactionsPage() {
   const session = useCurrentSession()
   const isOwner = session?.operator?.role === "OWNER"
-  const [dataSource, setDataSource] = useState<"LOCAL" | "SERVER">("LOCAL")
+  const dataSource = isOwner ? "SERVER" : "LOCAL"
 
   const localTransactions = useLocalTransactions()
   const serverQuery = useServerTransactions(session ?? null, dataSource === "SERVER")
@@ -48,22 +48,7 @@ export function TransactionsPage() {
     (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
   ).length
 
-  const sourceToggle = isOwner ? (
-    <div className="flex gap-1 rounded-md border bg-muted p-0.5">
-      <button
-        onClick={() => setDataSource("LOCAL")}
-        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "LOCAL" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-      >
-        Lokal
-      </button>
-      <button
-        onClick={() => setDataSource("SERVER")}
-        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "SERVER" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-      >
-        Server (Live)
-      </button>
-    </div>
-  ) : undefined
+  const sourceToggle = undefined
 
   return (
     <div>
