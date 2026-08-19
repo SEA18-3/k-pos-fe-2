@@ -23,12 +23,12 @@ const filters: Array<{ value: Filter; label: string }> = [
 
 export function TransactionsPage() {
   const session = useCurrentSession()
-  const isOwner = session?.operator?.role === "OWNER"
+  const isOwner = session?.operator?.role === "OWNER" || session?.operator?.role === "ADMIN" as any
   const [dataSource, setDataSource] = useState<"LOCAL" | "SERVER">("LOCAL")
 
   const localTransactions = useLocalTransactions()
   const serverQuery = useServerTransactions(session, dataSource === "SERVER")
-
+  
   const transactions = dataSource === "SERVER" ? (serverQuery.data || []) : localTransactions
 
   const [filter, setFilter] = useState<Filter>("ALL")
@@ -38,7 +38,7 @@ export function TransactionsPage() {
       transactions.filter(
         (transaction) =>
           matchesFilter(transaction, filter) &&
-          `${transaction.invoiceNumber} ${transaction.total} ${paymentLabels[transaction.paymentMethod]}`
+          \\ \ \\
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
@@ -48,41 +48,34 @@ export function TransactionsPage() {
     (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
   ).length
 
-  const sourceToggle = isOwner ? (
-    <div className="flex gap-1 rounded-md border bg-muted p-0.5">
-      <button
-        onClick={() => setDataSource("LOCAL")}
-        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "LOCAL" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-      >
-        Lokal
-      </button>
-      <button
-        onClick={() => setDataSource("SERVER")}
-        className={`px-3 py-1 text-xs font-medium rounded transition-colors ${dataSource === "SERVER" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-      >
-        Server (Live)
-      </button>
-    </div>
-  ) : undefined
-
   return (
     <div>
       <PageHeader
         title="Transaksi"
         description="Semua penjualan dari perangkat ini, termasuk status sinkronisasi saat offline."
-        actions={sourceToggle}
-      />
-
+      >
+        {isOwner && (
+          <div className="flex gap-2 p-1 bg-muted rounded-md w-max ml-auto">
+            <button
+              onClick={() => setDataSource("LOCAL")}
+              className={\px-4 py-1.5 text-sm font-medium rounded-sm transition-colors \\}
+            >
+              Lokal (Dexie)
+            </button>
+            <button
+              onClick={() => setDataSource("SERVER")}
+              className={\px-4 py-1.5 text-sm font-medium rounded-sm transition-colors \\}
+            >
+              Server (Live)
+            </button>
+          </div>
+        )}
+      </PageHeader>
+      
       {dataSource === "SERVER" && serverQuery.isLoading && (
         <div className="p-8 text-center text-muted-foreground">Mengambil transaksi dari server...</div>
       )}
-
-      {dataSource === "SERVER" && serverQuery.error && (
-        <div className="p-8 text-center text-red-500">
-          <strong>Error:</strong> {serverQuery.error instanceof Error ? serverQuery.error.message : String(serverQuery.error)}
-        </div>
-      )}
-
+      
       {!(dataSource === "SERVER" && serverQuery.isLoading) && (
         <>
           <TransactionMetrics transactions={transactions} provisional={provisional} />
@@ -107,6 +100,9 @@ export function TransactionsPage() {
     </div>
   )
 }
+    </div>
+  )
+}
 
 function TransactionMetrics({
   transactions,
@@ -115,8 +111,7 @@ function TransactionMetrics({
   transactions: LocalTransaction[]
   provisional: number
 }) {
-  const validTransactions = transactions.filter(t => t.transactionStatus !== "VOIDED")
-  const total = validTransactions.reduce((sum, item) => sum + item.total, 0)
+  const total = transactions.reduce((sum, item) => sum + item.total, 0)
   return (
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
       <Metric label="Nilai transaksi" value={formatCurrency(total)} />
@@ -203,12 +198,7 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>{formatTransactionDate(transaction.createdAt)}</td>
                 <td>{paymentLabels[transaction.paymentMethod]}</td>
                 <td>
-                  <div className="flex gap-1 flex-wrap">
-                    {transaction.transactionStatus === "VOIDED" && (
-                      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
-                        Voided
-                      </span>
-                    )}
+                  <div className="flex gap-1">
                     <SyncBadge status={transaction.syncStatus} />
                   </div>
                 </td>
@@ -216,7 +206,6 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>
                   <Link
                     to={`/transactions/${transaction.id}`}
-                    state={{ transaction }}
                     className="grid size-8 place-items-center"
                   >
                     <IconArrowRight className="size-4" />
@@ -235,7 +224,7 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
   return (
     <div className="grid gap-2 p-4 sm:hidden">
       {transactions.map((transaction) => (
-        <Link key={transaction.id} to={`/transactions/${transaction.id}`} state={{ transaction }}>
+        <Link key={transaction.id} to={`/transactions/${transaction.id}`}>
           <Card className="grid gap-3 p-3">
             <div className="flex justify-between">
               <div>
@@ -250,12 +239,7 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
               <span className="text-[10px] text-muted-foreground">
                 {paymentLabels[transaction.paymentMethod]}
               </span>
-              <div className="flex gap-1 flex-wrap">
-                {transaction.transactionStatus === "VOIDED" && (
-                  <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
-                    Voided
-                  </span>
-                )}
+              <div className="flex gap-1">
                 <SyncBadge status={transaction.syncStatus} />
               </div>
             </div>
