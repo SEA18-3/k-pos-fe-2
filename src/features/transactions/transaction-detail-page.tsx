@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { useUiStore } from "@/app/ui-store"
+import { useCurrentSession } from "@/features/auth/session-queries"
 import { syncService } from "@/features/sync/sync-runtime"
 import { voidProvisionalSale } from "@/features/transactions/transaction-actions"
+import { fetchServerTransaction } from "@/features/transactions/transaction-api"
 import { TransactionFinancialDetails } from "@/features/transactions/transaction-detail-content"
 import { TransactionDetailHeader } from "@/features/transactions/transaction-detail-header"
 import {
@@ -20,16 +22,40 @@ import { Button } from "@/shared/ui/components/button"
 
 export function TransactionDetailPage() {
   const { id } = useParams()
+  const session = useCurrentSession()
   const location = useLocation()
   // If navigated from server-mode list, the transaction is passed in router state
   const passedTransaction = location.state?.transaction as LocalTransaction | undefined
-  const localTransaction = useLocalTransaction(passedTransaction ? undefined : id)
-  const transaction = passedTransaction ?? localTransaction
+  const localTransaction = useLocalTransaction(id)
+  const [serverTransaction, setServerTransaction] = useState<LocalTransaction | null>(null)
+  const [loadingServer, setLoadingServer] = useState(false)
+
+  useEffect(() => {
+    const needsFetch =
+      (!localTransaction && !passedTransaction) ||
+      (passedTransaction && passedTransaction.items.length === 0) ||
+      (localTransaction && localTransaction.items.length === 0)
+
+    if (needsFetch && id && session) {
+      setLoadingServer(true)
+      fetchServerTransaction(session, id)
+        .then((res) => setServerTransaction(res))
+        .catch(() => setServerTransaction(null))
+        .finally(() => setLoadingServer(false))
+    }
+  }, [localTransaction, passedTransaction, id, session])
+
+  const transaction =
+    serverTransaction && serverTransaction.items.length > 0
+      ? serverTransaction
+      : (passedTransaction ?? localTransaction ?? serverTransaction)
   const connection = useUiStore((state) => state.connection)
   const [voidOpen, setVoidOpen] = useState(false)
   const [correctionOpen, setCorrectionOpen] = useState(false)
   const [disputeOpen, setDisputeOpen] = useState(false)
 
+  if (loadingServer && !transaction) return <LoadingTransaction />
+  if (transaction === undefined && loadingServer) return <LoadingTransaction />
   if (transaction === undefined) return <LoadingTransaction />
   if (!transaction) return <MissingTransaction />
   const sale = transaction

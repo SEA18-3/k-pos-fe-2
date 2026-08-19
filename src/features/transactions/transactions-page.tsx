@@ -197,7 +197,9 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td className="px-3 py-3">
                   <strong>{transaction.invoiceNumber}</strong>
                   <div className="mt-1 text-[10px] text-muted-foreground">
-                    {transaction.items.length} jenis
+                    {transaction.items.length > 0
+                      ? `${transaction.items.length} jenis`
+                      : "Lihat rincian"}
                   </div>
                 </td>
                 <td>{formatTransactionDate(transaction.createdAt)}</td>

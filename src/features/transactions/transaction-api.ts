@@ -51,49 +51,63 @@ const fetchTransactionsResponseSchema = z.object({
   }).passthrough(),
 }).passthrough()
 
+export function mapServerTransaction(tx: any, session: AuthSession): LocalTransaction {
+  // Map payment method to frontend enum
+  const methodMap: Record<string, LocalTransaction["paymentMethod"]> = {
+    CASH: "CASH",
+    STATIC_QRIS: "STATIC_QRIS",
+    BANK_TRANSFER: "TRANSFER",
+  }
+  // For correction transactions, payment may be null → fall back to old transaction's payment
+  const effectivePayment = (tx as any).payment
+    ?? (tx as any).correctionsAsNew?.[0]?.oldTransaction?.payment
+    ?? null
+
+  return {
+    id: tx.id_transaction,
+    invoiceNumber: `SRV-${tx.id_transaction.replaceAll("-", "").slice(-8).toUpperCase()}`,
+    merchantId: session.merchantId,
+    deviceId: tx.id_device || "server",
+    operatorId: tx.id_user || "server",
+    operatorName: "Server",
+    items: (tx.details || []).map((detail: any) => ({
+      productId: detail.id_product,
+      name: detail.product_name || "Item Penjualan",
+      quantity: detail.quantity,
+      unitPrice: Number(detail.unit_price),
+      subtotal: Number(detail.subtotal),
+    })),
+    subtotal: Number(tx.subtotal),
+    discount: 0,
+    total: Number(tx.total),
+    paymentMethod: effectivePayment ? (methodMap[effectivePayment.method] ?? "CASH") : "CASH",
+    paymentVerificationType: "OPERATOR_ASSERTED",
+    amountReceived: effectivePayment?.cash_received ? Number(effectivePayment.cash_received) : undefined,
+    change: effectivePayment?.change_amount ? Number(effectivePayment.change_amount) : undefined,
+    transactionStatus: tx.status === "VOIDED" ? "VOIDED" : "CONFIRMED",
+    syncStatus: "SYNCED",
+    retryCount: 0,
+    offlineUuid: tx.offline_uuid || tx.id_transaction,
+    createdAt: tx.created_at,
+    receivedAtBackend: tx.created_at,
+  }
+}
+
 export function fetchServerTransactions(session: AuthSession): Promise<LocalTransaction[]> {
   return requestJson("/api/v1/transactions?limit=100", fetchTransactionsResponseSchema, { method: "GET" }, session.token)
-    .then((res) => {
-      return res.data.data.map((tx): LocalTransaction => {
-        // Map payment method to frontend enum
-        const methodMap: Record<string, LocalTransaction["paymentMethod"]> = {
-          CASH: "CASH",
-          STATIC_QRIS: "STATIC_QRIS",
-          BANK_TRANSFER: "TRANSFER",
-        }
-        // For correction transactions, payment may be null → fall back to old transaction's payment
-        const effectivePayment = (tx as any).payment
-          ?? (tx as any).correctionsAsNew?.[0]?.oldTransaction?.payment
-          ?? null
-        return {
-          id: tx.id_transaction,
-          invoiceNumber: `SRV-${tx.id_transaction.replaceAll("-", "").slice(-8).toUpperCase()}`,
-          merchantId: session.merchantId,
-          deviceId: "server",
-          operatorId: "server",
-          operatorName: "Server",
-          items: (tx.details || []).map((detail) => ({
-            productId: detail.id_product,
-            name: detail.product_name,
-            quantity: detail.quantity,
-            unitPrice: Number(detail.unit_price),
-            subtotal: Number(detail.subtotal),
-          })),
-          subtotal: Number(tx.subtotal),
-          discount: 0,
-          total: Number(tx.total),
-          paymentMethod: effectivePayment ? (methodMap[effectivePayment.method] ?? "CASH") : "CASH",
-          paymentVerificationType: "OPERATOR_ASSERTED",
-          amountReceived: effectivePayment?.cash_received ? Number(effectivePayment.cash_received) : undefined,
-          change: effectivePayment?.change_amount ? Number(effectivePayment.change_amount) : undefined,
-          transactionStatus: tx.status === "VOIDED" ? "VOIDED" : "CONFIRMED",
-          syncStatus: "SYNCED",
-          retryCount: 0,
-          offlineUuid: tx.offline_uuid || tx.id_transaction,
-          createdAt: tx.created_at,
-          receivedAtBackend: tx.created_at,
-        }
-      })
-    })
+    .then((res) => res.data.data.map((tx) => mapServerTransaction(tx, session)))
+}
+
+export function fetchServerTransaction(session: AuthSession, id: string): Promise<LocalTransaction> {
+  return requestJson(
+    `/api/v1/transactions/${encodeURIComponent(id)}`,
+    z.object({
+      status: z.string().optional(),
+      message: z.string().optional(),
+      data: transactionSchema.optional(),
+    }).passthrough(),
+    { method: "GET" },
+    session.token,
+  ).then((res) => mapServerTransaction(res.data || res, session))
 }
 
