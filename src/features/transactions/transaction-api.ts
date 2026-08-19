@@ -94,7 +94,7 @@ export function mapServerTransaction(tx: any, session: AuthSession): LocalTransa
 }
 
 export function fetchServerTransactions(session: AuthSession): Promise<LocalTransaction[]> {
-  return requestJson("/api/v1/transactions?limit=100", fetchTransactionsResponseSchema, { method: "GET" }, session.token)
+  return requestJson("/api/v1/transactions?limit=100", fetchTransactionsResponseSchema, { method: "GET", cache: "no-store" }, session.token)
     .then((res) => res.data.data.map((tx) => mapServerTransaction(tx, session)))
 }
 
