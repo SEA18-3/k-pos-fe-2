@@ -269,7 +269,7 @@ function DesktopSidebar(props: {
           to="/settings"
           className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent"
         >
-          <IconSettings className="size-4" /> Pengaturan
+          <IconSettings className="size-4"/> Pengaturan
         </NavLink>
         <div className="mt-2 flex items-center gap-2 rounded-md border bg-card/70 p-2">
           <div className="grid size-7 place-items-center rounded-full bg-zinc-700 text-[10px] font-semibold">

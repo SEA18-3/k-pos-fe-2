@@ -85,10 +85,6 @@ export function SyncPage() {
             <Diagnostic label="Batch policy" value="25 transaksi / batch" />
             <Diagnostic label="Payload schema" value="v1" />
             <Diagnostic label="Aktivitas sesi" value={`${attempts.length} attempt`} />
-            <p className="rounded-md bg-secondary p-2 text-[10px] leading-4 text-muted-foreground">
-              Transaksi dikirim sebagai antrean async; status final (`SYNCED`/`SYNC_CONFLICT`)
-              didapat lewat poll rekonsiliasi, bukan langsung dari respons kirim.
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -131,7 +127,7 @@ function QueueCard(props: {
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Local outbox</CardTitle>
         <Badge variant={props.queued.length ? "warning" : "success"}>
           {props.queued.length ? `${props.queued.length} antre` : "Semua bersih"}
@@ -232,7 +228,7 @@ function ServerFailedQueueCard(props: {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle>Server Failed Sync Queue</CardTitle>
         <Badge variant={props.items.length ? "destructive" : "success"}>
           {props.items.length ? `${props.items.length} gagal` : "Bersih"}
