@@ -11,13 +11,14 @@ export type ConfirmSaleInput = {
   paymentReference?: string
 }
 
-type TransactionContext = {
+export type TransactionContext = {
   transactionId: string
   createdAt: string
   merchantId: string
   deviceId: string
   operatorId: string
   operatorName: string
+  lastBootstrapAt?: string
 }
 
 export function buildLocalTransaction(
@@ -35,6 +36,8 @@ export function buildLocalTransaction(
     items: input.items.map(({ product, quantity }) => ({
       productId: product.id,
       name: product.name,
+      sku: product.sku,
+      catalogVersion: product.updatedAt || context.lastBootstrapAt || context.createdAt,
       quantity,
       unitPrice: product.price,
       subtotal: product.price * quantity,
@@ -48,13 +51,13 @@ export function buildLocalTransaction(
     amountReceived: input.amountReceived,
     change: input.amountReceived === undefined ? undefined : input.amountReceived - subtotal,
     transactionStatus: "CONFIRMED",
-    syncStatus: "LOCAL_ONLY",
-    settlementStatus: "PROVISIONAL",
+    syncStatus: "PENDING_SYNC",
+    offlineUuid: crypto.randomUUID(),
     createdAt: context.createdAt,
     retryCount: 0,
   }
 }
 
 export function invoiceNumberFor(transactionId: string) {
-  return `OPS-${transactionId.replaceAll("-", "").slice(-8).toUpperCase()}`
+  return transactionId
 }

@@ -1,15 +1,8 @@
-import type {
-  BackendTransaction,
-  CorrectionRecord,
-  InventoryDiscrepancy,
-} from "@operator/contracts"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 import {
-  IconAlertTriangle,
   IconArrowDownRight,
   IconCheck,
   IconClipboardCheck,
-  IconHistory,
-  IconScale,
 } from "@tabler/icons-react"
 
 import { formatCurrency, formatTransactionDate, paymentLabels } from "@/shared/lib/format"
@@ -18,65 +11,37 @@ import { Badge } from "@/shared/ui/components/badge"
 import { Button } from "@/shared/ui/components/button"
 import { Card } from "@/shared/ui/components/card"
 
-export type ReconciliationDesk = "PAYMENTS" | "INVENTORY" | "AUDIT"
-
-export function DeskTabs(props: {
-  value: ReconciliationDesk
-  onChange: (value: ReconciliationDesk) => void
-}) {
-  const tabs = [
-    ["PAYMENTS", "Payment risk", IconScale],
-    ["INVENTORY", "Inventory", IconAlertTriangle],
-    ["AUDIT", "Audit trail", IconHistory],
-  ] as const
-  return (
-    <div className="flex gap-1 border-b px-4 py-3 sm:px-6">
-      {tabs.map(([value, label, Icon]) => (
-        <Button
-          key={value}
-          variant={props.value === value ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => props.onChange(value)}
-        >
-          <Icon />
-          {label}
-        </Button>
-      ))}
-    </div>
-  )
-}
-
 export function ReconciliationMetrics(props: {
-  transactions: number
-  corrections: number
-  open: number
+  openCases: number
+  resolvedCases: number
+  total: number
 }) {
   return (
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
-      <Metric label="Operator-asserted" value={props.transactions} />
-      <Metric label="Correction records" value={props.corrections} primary />
-      <Metric label="Open discrepancy" value={props.open} warning={props.open > 0} />
+      <Metric label="Total Dispute" value={props.total} />
+      <Metric label="Kasus Aktif" value={props.openCases} warning={props.openCases > 0} />
+      <Metric label="Diselesaikan" value={props.resolvedCases} primary />
     </div>
   )
 }
 
 export function PaymentRiskPanel(props: {
-  transactions: BackendTransaction[]
-  onCorrect: (transaction: BackendTransaction) => void
+  reconciliations: ReconciliationRecord[]
+  onResolve: (record: ReconciliationRecord) => void
 }) {
-  if (props.transactions.length === 0)
+  if (props.reconciliations.length === 0)
     return (
       <EmptyState
         icon={IconClipboardCheck}
-        title="Belum ada payment risk"
-        copy="Transaksi QRIS/Transfer yang sudah masuk backend akan muncul di sini."
+        title="Belum ada kasus dispute"
+        copy="Kasus rekonsiliasi pembayaran yang dibuka akan muncul di sini."
       />
     )
   return (
     <div className="grid gap-3">
-      {props.transactions.map((transaction) => (
+      {props.reconciliations.map((record) => (
         <Card
-          key={transaction.id}
+          key={record.id_reconciliation}
           className="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
         >
           <div className="flex items-center gap-3">
@@ -85,106 +50,29 @@ export function PaymentRiskPanel(props: {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold">{transaction.invoiceNumber}</span>
-                <Badge variant="warning">Operator asserted</Badge>
-                {transaction.correctionTotal !== 0 && (
-                  <Badge variant="outline">
-                    Adjusted {formatCurrency(transaction.correctionTotal)}
+                <span className="text-xs font-semibold">{record.id_payment}</span>
+                {record.status === "OPEN" ? (
+                  <Badge variant="warning">OPEN</Badge>
+                ) : (
+                  <Badge variant={record.status === "RESOLVED_VALID" ? "default" : "destructive"}>
+                    {record.status}
                   </Badge>
                 )}
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                {paymentLabels[transaction.paymentMethod]} ·{" "}
-                {formatTransactionDate(transaction.createdAtDevice)} · {transaction.operatorName}
+                {record.reason} ?" Dibuka oleh {record.openedByUser?.full_name ?? record.opened_by} pada {formatTransactionDate(record.created_at)}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <strong className="text-sm tabular-nums">{formatCurrency(transaction.total)}</strong>
-            <Button size="sm" onClick={() => props.onCorrect(transaction)}>
-              Buat correction
-            </Button>
-          </div>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-export function InventoryPanel(props: {
-  discrepancies: InventoryDiscrepancy[]
-  onResolve: (item: InventoryDiscrepancy) => void
-}) {
-  if (props.discrepancies.length === 0)
-    return (
-      <EmptyState
-        icon={IconCheck}
-        title="Tidak ada discrepancy"
-        copy="Worker akan membuat exception jika proyeksi stok turun di bawah nol."
-      />
-    )
-  return (
-    <div className="grid gap-3">
-      {props.discrepancies.map((item) => (
-        <Card key={item.id} className="grid gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold">{item.productName}</span>
-              <Badge variant={item.status === "OPEN" ? "warning" : "success"}>{item.status}</Badge>
-            </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">
-              Detected {formatTransactionDate(item.detectedAt)} · projection{" "}
-              <span className="text-red-400">{item.projectedStock}</span>
-            </div>
-            {item.resolution && (
-              <div className="mt-1 text-[10px] text-muted-foreground">{item.resolution}</div>
-            )}
-          </div>
-          {item.status === "OPEN" && (
-            <Button size="sm" onClick={() => props.onResolve(item)}>
-              Resolve
-            </Button>
-          )}
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-export function AuditPanel({ corrections }: { corrections: CorrectionRecord[] }) {
-  if (corrections.length === 0)
-    return (
-      <EmptyState
-        icon={IconHistory}
-        title="Audit trail masih kosong"
-        copy="Setiap correction admin akan muncul sebagai record append-only."
-      />
-    )
-  return (
-    <div className="grid gap-3">
-      {corrections.map((item) => (
-        <Card key={item.id} className="p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold">{item.invoiceNumber}</span>
-                <Badge variant="outline">Immutable original</Badge>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{item.reason}</p>
-              <div className="mt-2 text-[10px] text-muted-foreground">
-                {item.adminName} · {formatTransactionDate(item.createdAt)}
-                {item.evidenceReference ? ` · ${item.evidenceReference}` : ""}
-              </div>
-            </div>
-            <strong
-              className={cn(
-                "text-sm tabular-nums",
-                item.adjustmentAmount < 0 ? "text-red-400" : "text-emerald-400",
-              )}
-            >
-              {item.adjustmentAmount > 0 ? "+" : ""}
-              {formatCurrency(item.adjustmentAmount)}
+            <strong className="text-sm tabular-nums">
+              {formatCurrency(Number(record.payment?.amount ?? 0))}
             </strong>
+            {record.status === "OPEN" && (
+              <Button size="sm" onClick={() => props.onResolve(record)}>
+                Resolve
+              </Button>
+            )}
           </div>
         </Card>
       ))}
@@ -238,3 +126,4 @@ function EmptyState({
     </div>
   )
 }
+

@@ -21,7 +21,7 @@ export class OperatorDatabase extends Dexie {
     super(name)
     this.version(1).stores({
       products: "id, sku, name, category, stock, active",
-      transactions: "id, invoiceNumber, createdAt, syncStatus, settlementStatus, paymentMethod",
+      transactions: "id, invoiceNumber, createdAt, syncStatus, paymentMethod",
       outbox: "id, transactionId, status, createdAt, nextRetryAt",
       syncAttempts: "++id, transactionId, createdAt, result",
       settings: "key",

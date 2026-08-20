@@ -11,6 +11,7 @@ import {
   IconRefresh,
   IconUser,
 } from "@tabler/icons-react"
+import { Link } from "react-router-dom"
 
 import { activateAndLogin, bootstrapLocalData } from "@/features/auth/auth-api"
 import type { AuthSession, DeviceIdentity } from "@/infrastructure/persistence/models"
@@ -20,15 +21,17 @@ import { Input } from "@/shared/ui/components/input"
 export function LoginPage({
   device,
   onAuthenticated,
+  isAdminMode,
 }: {
   device: DeviceIdentity
   onAuthenticated: (session: AuthSession) => void
+  isAdminMode?: boolean
 }) {
   return (
     <main className="grain relative grid min-h-svh overflow-hidden bg-background lg:grid-cols-[minmax(0,1.45fr)_minmax(440px,0.75fr)]">
       <div className="app-grid pointer-events-none absolute inset-0 opacity-35" />
       <LoginHero />
-      <LoginForm device={device} onAuthenticated={onAuthenticated} />
+      <LoginForm device={device} onAuthenticated={onAuthenticated} isAdminMode={isAdminMode} />
     </main>
   )
 }
@@ -36,14 +39,14 @@ export function LoginPage({
 function LoginForm({
   device,
   onAuthenticated,
+  isAdminMode,
 }: {
   device: DeviceIdentity
   onAuthenticated: (session: AuthSession) => void
+  isAdminMode?: boolean
 }) {
-  const [merchantCode, setMerchantCode] = useState("KEDAI-NUSA")
-  const [operatorCode, setOperatorCode] = useState("RANI")
-  const [pin, setPin] = useState("1234")
-  const [activationCode, setActivationCode] = useState("COMP18-DEMO")
+  const [email, setEmail] = useState("owner@kpos.com")
+  const [password, setPassword] = useState("password123")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -52,13 +55,7 @@ function LoginForm({
     setLoading(true)
     setError("")
     try {
-      const session = await activateAndLogin({
-        merchantCode,
-        operatorCode,
-        pin,
-        activationCode,
-        device,
-      })
+      const session = await activateAndLogin({ email, password, device })
       await bootstrapLocalData(session, device)
       onAuthenticated(session)
     } catch (cause) {
@@ -75,45 +72,32 @@ function LoginForm({
         className="w-full max-w-[500px] rounded-2xl border bg-card/72 p-5 shadow-2xl shadow-black/35 backdrop-blur-xl sm:p-8"
       >
         <MobileBrand />
-        <h2 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">Aktifkan counter</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
+          {isAdminMode ? "Login Admin" : "Login Kasir"}
+        </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-          Aktivasi pertama butuh internet. Setelah masuk, katalog dan transaksi tetap tersedia saat
-          koneksi putus.
+          {isAdminMode 
+            ? "Masuk ke Dashboard Web untuk mengelola katalog, kasir, dan rekonsiliasi."
+            : "Masukkan email dan kata sandi operator Anda untuk mulai menggunakan aplikasi kasir."}
         </p>
 
         <div className="mt-7 grid gap-4">
-          <LoginField label="Kode merchant" icon={<IconBuildingStore />}>
+          <LoginField label="Email Pengguna" icon={<IconUser />}>
             <Input
-              value={merchantCode}
-              onChange={(event) => setMerchantCode(event.target.value.toUpperCase())}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="h-11 bg-background/60 pr-10"
-              autoComplete="organization"
-            />
-          </LoginField>
-          <LoginField label="Kode operator" icon={<IconUser />}>
-            <Input
-              value={operatorCode}
-              onChange={(event) => setOperatorCode(event.target.value.toUpperCase())}
-              className="h-11 bg-background/60 pr-10"
+              type="email"
               autoComplete="username"
             />
           </LoginField>
-          <LoginField label="PIN operator" icon={<IconLock />}>
+          <LoginField label="Kata Sandi" icon={<IconLock />}>
             <Input
-              value={pin}
-              onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               className="h-11 bg-background/60 pr-10"
               type="password"
-              inputMode="numeric"
               autoComplete="current-password"
-            />
-          </LoginField>
-          <LoginField label="Kode aktivasi device" icon={<IconKey />}>
-            <Input
-              value={activationCode}
-              onChange={(event) => setActivationCode(event.target.value.toUpperCase())}
-              className="h-11 bg-background/60 pr-10"
-              autoComplete="off"
             />
           </LoginField>
         </div>
@@ -124,12 +108,15 @@ function LoginForm({
           </div>
         )}
         <Button type="submit" size="lg" className="mt-6 h-12 w-full" disabled={loading}>
-          {loading ? "Mengaktifkan perangkat…" : "Aktifkan & masuk"}
+          {loading ? "Memproses…" : "Masuk"}
           <IconArrowRight />
         </Button>
-        <DeviceIdentityCard deviceId={device.id} />
-        <p className="mt-6 text-center text-[10px] leading-5 text-muted-foreground">
-          Demo: KEDAI-NUSA · RANI · PIN 1234 · COMP18-DEMO
+        {!isAdminMode && <DeviceIdentityCard deviceId={device.id} />}
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          Belum punya akun?{" "}
+          <Link to="/register" className="text-primary hover:underline font-semibold">
+            Daftar Toko Baru
+          </Link>
         </p>
       </form>
     </section>
@@ -196,8 +183,8 @@ function LoginField({
 function MobileBrand() {
   return (
     <div className="mb-8 flex items-center gap-3 lg:hidden">
-      <img src="/brand/compos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
-      <span className="text-sm font-semibold tracking-[0.12em]">COMPOS</span>
+      <img src="/brand/k-pos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
+      <span className="text-sm font-semibold tracking-[0.12em]">K-POS</span>
     </div>
   )
 }
@@ -212,8 +199,8 @@ function LoginHero() {
   return (
     <section className="relative hidden min-w-0 flex-col justify-between gap-8 p-8 lg:flex xl:p-12">
       <div className="flex items-center gap-3">
-        <img src="/brand/compos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
-        <span className="text-base font-semibold tracking-[0.12em]">COMPOS</span>
+        <img src="/brand/k-pos-icon.png" alt="" className="size-10 rounded-lg object-cover" />
+        <span className="text-base font-semibold tracking-[0.12em]">K-POS</span>
       </div>
 
       <div className="max-w-5xl">
@@ -224,13 +211,13 @@ function LoginHero() {
           <span className="text-primary">.</span>
         </h1>
         <p className="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground xl:text-base xl:leading-7">
-          COMPOS menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
+          K-POS menyimpan transaksi ke perangkat saat offline, lalu mengirimkannya otomatis ketika
           koneksi kembali tersedia.
         </p>
 
         <div className="mt-8 overflow-hidden rounded-2xl border bg-card/35 shadow-2xl shadow-black/20">
           <img
-            src="/brand/compos-login-flow.png"
+            src="/brand/k-pos-login-flow.png"
             alt="Alur transaksi dari kasir ke outbox lokal lalu tersinkron ke backend"
             className="aspect-[2.6/1] w-full object-cover"
           />
@@ -245,10 +232,6 @@ function LoginHero() {
           ))}
         </div>
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Siap dipakai di toko, bazar, dan pop-up store.
-      </p>
     </section>
   )
 }

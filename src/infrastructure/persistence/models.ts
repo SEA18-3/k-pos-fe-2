@@ -10,6 +10,7 @@ export type Product = {
   stock: number
   accent: string
   featured?: boolean
+  imageUrl?: string
   active?: boolean
   lowStockThreshold?: number
   updatedAt?: string
@@ -17,8 +18,7 @@ export type Product = {
 
 export type PaymentMethod = "CASH" | "STATIC_QRIS" | "TRANSFER"
 export type PaymentVerificationType = "SYSTEM_VERIFIABLE" | "OPERATOR_ASSERTED"
-export type SyncStatus = "LOCAL_ONLY" | "SYNCING" | "SYNCED" | "FAILED"
-export type SettlementStatus = "PROVISIONAL" | "SETTLED"
+export type SyncStatus = "PENDING_SYNC" | "SYNCING" | "SYNCED" | "SYNC_FAILED" | "SYNC_CONFLICT"
 
 export type TransactionItem = {
   productId: string
@@ -26,6 +26,8 @@ export type TransactionItem = {
   quantity: number
   unitPrice: number
   subtotal: number
+  sku?: string
+  catalogVersion?: string
 }
 
 export type LocalTransaction = {
@@ -46,7 +48,9 @@ export type LocalTransaction = {
   change?: number
   transactionStatus: "CONFIRMED" | "VOIDED"
   syncStatus: SyncStatus
-  settlementStatus: SettlementStatus
+  offlineUuid: string
+  backendId?: string
+  paymentId?: string
   createdAt: string
   receivedAtBackend?: string
   retryCount: number
@@ -91,14 +95,14 @@ export type DeviceIdentity = {
 
 export type AuthSession = {
   token: string
+  refreshToken: string
   merchantId: string
   operator: {
     id: string
     name: string
-    role: "OPERATOR" | "ADMIN"
+    role: "OWNER" | "OPERATOR" | "ENTRY"
   }
   expiresAt: string
-  offlineLeaseExpiresAt: string
 }
 
 export type CartDraft = {

@@ -1,18 +1,11 @@
 import { useState } from "react"
-import type { BackendTransaction, InventoryDiscrepancy } from "@operator/contracts"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 import { IconRefresh } from "@tabler/icons-react"
 
+import { ResolutionDialog } from "@/features/reconciliation/reconciliation-dialogs"
 import {
-  CorrectionDialog,
-  ResolutionDialog,
-} from "@/features/reconciliation/reconciliation-dialogs"
-import {
-  AuditPanel,
-  DeskTabs,
-  InventoryPanel,
   PaymentRiskPanel,
   ReconciliationMetrics,
-  type ReconciliationDesk,
 } from "@/features/reconciliation/reconciliation-panels"
 import { useReconciliationDesk } from "@/features/reconciliation/use-reconciliation-desk"
 import { Button } from "@/shared/ui/components/button"
@@ -20,14 +13,16 @@ import { PageHeader } from "@/shared/ui/page-header"
 
 export function ReconciliationPage() {
   const data = useReconciliationDesk()
-  const [desk, setDesk] = useState<ReconciliationDesk>("PAYMENTS")
-  const [transaction, setTransaction] = useState<BackendTransaction | null>(null)
-  const [discrepancy, setDiscrepancy] = useState<InventoryDiscrepancy | null>(null)
+  const [conflictTx, setConflictTx] = useState<ReconciliationRecord | null>(null)
+  
+  const openCases = data.reconciliations.filter(r => r.status === "OPEN").length
+  const resolvedCases = data.reconciliations.filter(r => r.status !== "OPEN").length
+
   return (
     <div>
       <PageHeader
-        title="Reconciliation desk"
-        description="Koreksi pembayaran dan selesaikan proyeksi stok tanpa pernah mengubah histori transaksi asli."
+        title="Reconciliation Desk"
+        description="Periksa dan selesaikan transaksi yang bermasalah atau memiliki selisih pembayaran."
         actions={
           <Button variant="outline" onClick={() => void data.refresh()} disabled={data.loading}>
             <IconRefresh className={data.loading ? "animate-spin" : ""} /> Refresh
@@ -35,30 +30,22 @@ export function ReconciliationPage() {
         }
       />
       <ReconciliationMetrics
-        transactions={data.transactions.length}
-        corrections={data.corrections.length}
-        open={data.openDiscrepancyCount}
+        openCases={openCases}
+        resolvedCases={resolvedCases}
+        total={data.reconciliations.length}
       />
-      <DeskTabs value={desk} onChange={setDesk} />
       <div className="p-4 sm:p-6">
-        {desk === "PAYMENTS" && (
-          <PaymentRiskPanel transactions={data.transactions} onCorrect={setTransaction} />
-        )}
-        {desk === "INVENTORY" && (
-          <InventoryPanel discrepancies={data.discrepancies} onResolve={setDiscrepancy} />
-        )}
-        {desk === "AUDIT" && <AuditPanel corrections={data.corrections} />}
+        <PaymentRiskPanel
+          reconciliations={data.reconciliations}
+          onResolve={setConflictTx}
+        />
       </div>
-      <CorrectionDialog
-        transaction={transaction}
-        onClose={() => setTransaction(null)}
-        onSubmit={data.correct}
-      />
       <ResolutionDialog
-        discrepancy={discrepancy}
-        onClose={() => setDiscrepancy(null)}
+        record={conflictTx}
+        onClose={() => setConflictTx(null)}
         onSubmit={data.resolve}
       />
     </div>
   )
 }
+

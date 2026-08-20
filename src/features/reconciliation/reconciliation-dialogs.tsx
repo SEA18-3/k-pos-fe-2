@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react"
-import type {
-  BackendTransaction,
-  CreateCorrectionRequest,
-  InventoryDiscrepancy,
-  ResolveInventoryDiscrepancyRequest,
-} from "@operator/contracts"
+import type { ReconciliationRecord } from "@/features/reconciliation/reconciliation-api"
 
-import { formatCurrency } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
 import {
   Dialog,
@@ -16,136 +10,66 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/components/dialog"
-import { Input } from "@/shared/ui/components/input"
 
-export function CorrectionDialog(props: {
-  transaction: BackendTransaction | null
-  onClose: () => void
-  onSubmit: (id: string, input: CreateCorrectionRequest) => Promise<boolean>
-}) {
-  const [reason, setReason] = useState("")
-  const [adjustmentAmount, setAdjustmentAmount] = useState(0)
-  const [evidenceReference, setEvidenceReference] = useState("")
-  useEffect(() => {
-    if (!props.transaction) {
-      setReason("")
-      setAdjustmentAmount(0)
-      setEvidenceReference("")
-    }
-  }, [props.transaction])
-  const submit = async () => {
-    if (!props.transaction) return
-    const saved = await props.onSubmit(props.transaction.id, {
-      reason,
-      adjustmentAmount,
-      evidenceReference: evidenceReference || undefined,
-    })
-    if (saved) props.onClose()
-  }
-  return (
-    <Dialog open={Boolean(props.transaction)} onOpenChange={(open) => !open && props.onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Append payment correction</DialogTitle>
-          <DialogDescription>
-            Original transaction tetap settled dan immutable. Adjustment ini menjadi record audit
-            baru.
-          </DialogDescription>
-        </DialogHeader>
-        {props.transaction && (
-          <div className="grid gap-3">
-            <div className="flex justify-between rounded-md bg-secondary p-3 text-xs">
-              <span>{props.transaction.invoiceNumber}</span>
-              <strong>{formatCurrency(props.transaction.total)}</strong>
-            </div>
-            <Field label="Reason">
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
-                placeholder="Contoh: pembayaran QRIS ternyata tidak masuk"
-              />
-            </Field>
-            <Field label="Adjustment amount">
-              <Input
-                type="number"
-                value={adjustmentAmount || ""}
-                onChange={(event) => setAdjustmentAmount(Number(event.target.value))}
-                placeholder="-22000"
-              />
-            </Field>
-            <Field label="Evidence reference">
-              <Input
-                value={evidenceReference}
-                onChange={(event) => setEvidenceReference(event.target.value)}
-                placeholder="Bank statement / ticket ID"
-              />
-            </Field>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={props.onClose}>
-            Batal
-          </Button>
-          <Button
-            disabled={reason.length < 8 || adjustmentAmount === 0}
-            onClick={() => void submit()}
-          >
-            Simpan correction
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
+/**
+ * Dialog untuk menyelesaikan kasus perselisihan (Reconciliation Dispute).
+ */
 export function ResolutionDialog(props: {
-  discrepancy: InventoryDiscrepancy | null
+  record: ReconciliationRecord | null
   onClose: () => void
-  onSubmit: (id: string, input: ResolveInventoryDiscrepancyRequest) => Promise<boolean>
+  onSubmit: (id: string, status: "RESOLVED_VALID" | "RESOLVED_INVALID", resolution: string) => Promise<void>
 }) {
   const [resolution, setResolution] = useState("")
-  const [adjustedStock, setAdjustedStock] = useState<number | undefined>()
+  const [submitting, setSubmitting] = useState(false)
+
   useEffect(() => {
     setResolution("")
-    setAdjustedStock(props.discrepancy ? Math.max(0, props.discrepancy.projectedStock) : undefined)
-  }, [props.discrepancy])
-  const submit = async () => {
-    if (!props.discrepancy) return
-    const saved = await props.onSubmit(props.discrepancy.id, { resolution, adjustedStock })
-    if (saved) props.onClose()
+  }, [props.record])
+
+  const submit = async (status: "RESOLVED_VALID" | "RESOLVED_INVALID") => {
+    if (!props.record) return
+    setSubmitting(true)
+    try {
+      await props.onSubmit(props.record.id_reconciliation, status, resolution)
+      props.onClose()
+    } finally {
+      setSubmitting(false)
+    }
   }
+
   return (
-    <Dialog open={Boolean(props.discrepancy)} onOpenChange={(open) => !open && props.onClose()}>
+    <Dialog open={Boolean(props.record)} onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Resolve inventory discrepancy</DialogTitle>
-          <DialogDescription>Catat hasil stock opname atau penyesuaian admin.</DialogDescription>
+          <DialogTitle>Selesaikan Dispute Pembayaran</DialogTitle>
+          <DialogDescription>
+            Pilih hasil dari investigasi kasus rekonsiliasi pembayaran ini.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Field label="Resolution note">
+          <Field label="Catatan Resolusi (Wajib)">
             <textarea
               value={resolution}
               onChange={(event) => setResolution(event.target.value)}
               className="min-h-20 rounded-md border bg-transparent p-2.5 text-sm outline-none focus:ring-[3px] focus:ring-ring/30"
+              placeholder="Jelaskan alasan penyelesaian kasus ini..."
+              disabled={submitting}
             />
           </Field>
-          <Field label="Adjusted stock">
-            <Input
-              type="number"
-              value={adjustedStock ?? ""}
-              onChange={(event) =>
-                setAdjustedStock(event.target.value === "" ? undefined : Number(event.target.value))
-              }
-            />
-          </Field>
+          <div className="text-xs text-muted-foreground rounded-md bg-secondary p-3">
+            <p className="mb-2"><strong>INVALID:</strong> Uang tidak masuk, transaksi akan di-VOID untuk dikeluarkan dari laporan, tapi stok TIDAK dikembalikan.</p>
+            <p><strong>VALID:</strong> Uang akhirnya masuk atau kasus ditutup, transaksi tetap CONFIRMED.</p>
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={props.onClose}>
+          <Button variant="outline" onClick={props.onClose} disabled={submitting}>
             Batal
           </Button>
-          <Button disabled={resolution.length < 8} onClick={() => void submit()}>
-            Resolve
+          <Button variant="destructive" disabled={resolution.length < 8 || submitting} onClick={() => void submit("RESOLVED_INVALID")}>
+            Tandai INVALID
+          </Button>
+          <Button disabled={resolution.length < 8 || submitting} onClick={() => void submit("RESOLVED_VALID")}>
+            Tandai VALID
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -161,3 +85,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   )
 }
+

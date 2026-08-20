@@ -42,8 +42,8 @@ function transaction(id = "0197f0a0-test-transaction"): LocalTransaction {
     paymentMethod: "CASH",
     paymentVerificationType: "SYSTEM_VERIFIABLE",
     transactionStatus: "CONFIRMED",
-    syncStatus: "LOCAL_ONLY",
-    settlementStatus: "PROVISIONAL",
+    syncStatus: "PENDING_SYNC",
+    offlineUuid: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
     createdAt: new Date().toISOString(),
     retryCount: 0,
   }
@@ -72,8 +72,7 @@ describe("offline local persistence", () => {
     await commitLocalSale(sale)
 
     expect(await db.transactions.get(sale.id)).toMatchObject({
-      syncStatus: "LOCAL_ONLY",
-      settlementStatus: "PROVISIONAL",
+      syncStatus: "PENDING_SYNC",
     })
     expect(await db.outbox.where("transactionId").equals(sale.id).first()).toMatchObject({
       status: "PENDING",
@@ -111,7 +110,7 @@ describe("offline local persistence", () => {
 
     expect(await db.transactions.get(sale.id)).toMatchObject({
       transactionStatus: "VOIDED",
-      syncStatus: "LOCAL_ONLY",
+      syncStatus: "PENDING_SYNC",
     })
     expect((await db.products.get(product.id))?.stock).toBe(5)
     expect(await db.outbox.where("transactionId").equals(sale.id).first()).toMatchObject({

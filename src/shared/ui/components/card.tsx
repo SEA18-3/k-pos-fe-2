@@ -9,7 +9,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("grid gap-1 border-b px-4 py-3", className)} {...props} />
+  return <div className={cn("flex items-center justify-between border-b px-4 py-3", className)} {...props} />
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {

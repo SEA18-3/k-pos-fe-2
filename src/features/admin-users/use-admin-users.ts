@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react"
-import type { AdminDevice, AdminOperator, CreateOperatorRequest } from "@operator/contracts"
+import type { AdminDevice, AdminOperator, CreateOperatorRequest } from "@/features/admin-users/admin-users-api"
 import { toast } from "sonner"
 
 import {
+  createDevice,
   createOperator,
   fetchDevices,
   fetchOperators,
-  resetOperatorPin,
   revokeDevice,
   updateOperator,
 } from "@/features/admin-users/admin-users-api"
@@ -27,8 +27,8 @@ export function useAdminUsers() {
         fetchOperators(session),
         fetchDevices(session),
       ])
-      setOperators(operatorResult.operators)
-      setDevices(deviceResult.devices)
+      setOperators(operatorResult.data.items)
+      setDevices(deviceResult.data.items)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Data admin gagal dimuat")
     } finally {
@@ -38,13 +38,13 @@ export function useAdminUsers() {
 
   useEffect(() => void refresh(), [refresh])
 
-  async function run(id: string, action: () => Promise<unknown>, success: string) {
+  async function run<T>(id: string, action: () => Promise<T>, success: string): Promise<T | false> {
     setMutatingId(id)
     try {
-      await action()
+      const res = await action()
       toast.success(success)
       await refresh()
-      return true
+      return res
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Perubahan gagal disimpan")
       return false
@@ -60,29 +60,30 @@ export function useAdminUsers() {
     loading,
     mutatingId,
     refresh,
-    create: (input: CreateOperatorRequest) =>
-      session
-        ? run("create", () => createOperator(session, input), "Akun operator dibuat")
-        : Promise.resolve(false),
+    create: async (input: CreateOperatorRequest): Promise<boolean> => {
+      if (!session) return false
+      const result = await run("create", () => createOperator(session, input), "Akun operator dibuat")
+      return Boolean(result)
+    },
     setActive: (operator: AdminOperator, active: boolean) =>
       session
         ? run(
-            operator.id,
-            () => updateOperator(session, operator.id, { active }),
+            operator.id_user,
+            () => updateOperator(session, operator.id_user, { is_active: active }),
             active ? "Akun diaktifkan" : "Akun dinonaktifkan",
           )
         : Promise.resolve(false),
-    setRole: (operator: AdminOperator, role: AdminOperator["role"]) =>
-      session
-        ? run(operator.id, () => updateOperator(session, operator.id, { role }), "Role diperbarui")
-        : Promise.resolve(false),
-    resetPin: (operator: AdminOperator, pin: string) =>
-      session
-        ? run(operator.id, () => resetOperatorPin(session, operator.id, pin), "PIN direset")
-        : Promise.resolve(false),
+    setRole: (operator: AdminOperator, role: AdminOperator["role"]) => {
+      toast.warning("Mengubah role pengguna tidak didukung oleh sistem.")
+      return Promise.resolve(false)
+    },
     revoke: (device: AdminDevice) =>
       session
-        ? run(device.id, () => revokeDevice(session, device.id), "Perangkat dicabut")
+        ? run(device.id_device, () => revokeDevice(session, device.id_device), "Perangkat dicabut")
         : Promise.resolve(false),
+    addDevice: (name: string) =>
+      session
+        ? run("create-device", () => createDevice(session, name), "Perangkat berhasil ditambahkan")
+        : Promise.resolve(false as const),
   }
 }

@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconTags,
   IconWifiOff,
+  IconLogout,
 } from "@tabler/icons-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { toast } from "sonner"
@@ -20,6 +21,8 @@ import { toast } from "sonner"
 import { ConnectionBadge } from "@/shared/ui/status-badge"
 import { Button } from "@/shared/ui/components/button"
 import { useCurrentSession, useMerchantProfile } from "@/features/auth/session-queries"
+import { logoutOnline } from "@/features/auth/auth-api"
+import { clearAuthSession } from "@/infrastructure/persistence/session-repository"
 import { useSyncOverview } from "@/features/sync/sync-queries"
 import { fromNow } from "@/shared/lib/format"
 import { refreshConnectivity, syncService } from "@/features/sync/sync-runtime"
@@ -38,14 +41,17 @@ const navItems = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const { connection, setConnection } = useUiStore()
+  const connection = useUiStore((state) => state.connection)
+  const setConnection = useUiStore((state) => state.setConnection)
   const [switching, setSwitching] = useState(false)
   const { lastSyncAt, pendingCount } = useSyncOverview()
   const session = useCurrentSession()
   const merchant = useMerchantProfile()
-  const visibleNavItems = navItems.filter(
-    (item) => !item.adminOnly || session?.operator.role === "ADMIN",
-  )
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.adminOnly && session?.operator.role !== "OWNER") return false
+    if (item.label === "Kasir" && session?.operator.role !== "OPERATOR") return false
+    return true
+  })
 
   useEffect(() => {
     if (connection !== "ONLINE") return
@@ -56,6 +62,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         })
     })
   }, [connection])
+
+  async function handleLogout() {
+    if (session) {
+      await logoutOnline(session).catch(() => {})
+    }
+    await clearAuthSession()
+    window.location.reload()
+  }
 
   async function toggleConnection() {
     if (switching) return
@@ -85,17 +99,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         merchantName={merchant?.name}
         merchantId={merchant?.id}
         operatorName={session?.operator.name}
-        admin={session?.operator.role === "ADMIN"}
+        admin={session?.operator.role === "OWNER"}
         pendingCount={pendingCount}
       />
 
       <div className="relative z-10 lg:pl-[212px]">
         <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b bg-background/86 px-3 backdrop-blur-xl sm:px-5">
           <div className="flex items-center gap-2 lg:hidden">
-            <img src="/brand/compos-icon.png" alt="" className="size-8 rounded-md object-cover" />
+            <img src="/brand/k-pos-icon.png" alt="" className="size-8 rounded-md object-cover" />
             <div>
               <div className="text-xs font-semibold">{merchant?.name ?? "Merchant"}</div>
-              <div className="text-[9px] text-muted-foreground">COMPOS Operator</div>
+              <div className="text-[9px] text-muted-foreground">K-POS Operator</div>
             </div>
           </div>
           <div className="hidden min-w-0 items-center gap-2 lg:flex">
@@ -139,6 +153,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </Button>
             </NavLink>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => void handleLogout()} 
+              className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+              title="Logout"
+            >
+              <IconLogout className="size-4" />
+              <span className="hidden sm:inline ml-1">Logout</span>
+            </Button>
           </div>
         </header>
 
@@ -194,9 +218,9 @@ function DesktopSidebar(props: {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r bg-background/92 backdrop-blur-xl lg:flex">
       <div className="flex h-[62px] items-center gap-2.5 border-b px-4">
-        <img src="/brand/compos-icon.png" alt="COMPOS" className="size-8 rounded-md object-cover" />
+        <img src="/brand/k-pos-icon.png" alt="k-pos" className="size-8 rounded-md object-cover" />
         <div>
-          <div className="text-sm font-semibold tracking-[0.08em]">COMPOS</div>
+          <div className="text-sm font-semibold tracking-[0.08em]">K-POS</div>
         </div>
       </div>
       <div className="px-2 py-3">
@@ -212,7 +236,6 @@ function DesktopSidebar(props: {
               {props.merchantId ?? "Local workspace"}
             </span>
           </span>
-          <IconChevronDown className="size-3.5 text-muted-foreground" />
         </button>
       </div>
       <nav className="grid gap-1 px-2 pt-1">
@@ -246,7 +269,7 @@ function DesktopSidebar(props: {
           to="/settings"
           className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent"
         >
-          <IconSettings className="size-4" /> Pengaturan
+          <IconSettings className="size-4"/> Pengaturan
         </NavLink>
         <div className="mt-2 flex items-center gap-2 rounded-md border bg-card/70 p-2">
           <div className="grid size-7 place-items-center rounded-full bg-zinc-700 text-[10px] font-semibold">

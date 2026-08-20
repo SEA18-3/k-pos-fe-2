@@ -10,10 +10,10 @@ import {
 function session(now: number): AuthSession {
   return {
     token: "token",
+    refreshToken: "refreshToken",
     merchantId: "merchant",
     operator: { id: "operator", name: "Operator", role: "OPERATOR" },
     expiresAt: new Date(now + 12 * 60 * 60 * 1_000).toISOString(),
-    offlineLeaseExpiresAt: new Date(now + OFFLINE_LEASE_MS).toISOString(),
   }
 }
 

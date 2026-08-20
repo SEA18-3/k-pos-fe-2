@@ -1,4 +1,4 @@
-import type { AdminOperator, CreateOperatorRequest } from "@operator/contracts"
+import type { AdminOperator, CreateOperatorRequest } from "@/features/admin-users/admin-users-api"
 import { IconUsers } from "@tabler/icons-react"
 
 import { CreateOperatorForm } from "@/features/admin-users/create-operator-form"
@@ -12,7 +12,6 @@ export function OperatorPanel(props: {
   onCreate: (input: CreateOperatorRequest) => Promise<boolean>
   onActiveChange: (operator: AdminOperator, active: boolean) => Promise<unknown>
   onRoleChange: (operator: AdminOperator, role: AdminOperator["role"]) => Promise<unknown>
-  onResetPin: (operator: AdminOperator, pin: string) => Promise<unknown>
 }) {
   return (
     <Card className="overflow-hidden">
@@ -25,13 +24,12 @@ export function OperatorPanel(props: {
       <CardContent className="divide-y p-0">
         {props.operators.map((operator) => (
           <OperatorRow
-            key={operator.id}
+            key={operator.id_user}
             operator={operator}
             currentOperatorId={props.currentOperatorId}
-            busy={props.mutatingId === operator.id}
+            busy={props.mutatingId === operator.id_user}
             onActiveChange={props.onActiveChange}
             onRoleChange={props.onRoleChange}
-            onResetPin={props.onResetPin}
           />
         ))}
       </CardContent>

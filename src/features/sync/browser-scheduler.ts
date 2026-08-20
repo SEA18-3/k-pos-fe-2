@@ -19,7 +19,7 @@ export function createBrowserSyncScheduler(dependencies: SchedulerDependencies) 
     }
     dependencies.setConnection("RECONNECTING")
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 3_000)
+    const timeout = window.setTimeout(() => controller.abort(), 30_000)
     try {
       await dependencies.probe(controller.signal)
       dependencies.setConnection("ONLINE")
@@ -56,11 +56,9 @@ export function createBrowserSyncScheduler(dependencies: SchedulerDependencies) 
     const handleOffline = () => dependencies.setConnection("OFFLINE")
     window.addEventListener("online", schedule)
     window.addEventListener("offline", handleOffline)
-    const interval = window.setInterval(() => void syncIfReachable(), 15_000)
     schedule()
     return () => {
       stopped = true
-      window.clearInterval(interval)
       reconnectTimers.forEach((timer) => window.clearTimeout(timer))
       window.removeEventListener("online", schedule)
       window.removeEventListener("offline", handleOffline)

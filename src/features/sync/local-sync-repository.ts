@@ -1,4 +1,4 @@
-import type { SyncResult } from "@operator/contracts"
+import type { BackendSyncAck } from "@/infrastructure/api/api-client"
 
 import { database } from "@/infrastructure/persistence/database"
 import type {
@@ -7,12 +7,7 @@ import type {
   SyncAttempt,
 } from "@/infrastructure/persistence/models"
 
-import {
-  BATCH_SIZE,
-  calculateBackoffMs,
-  isOutboxEntryDue,
-  transitionForResult,
-} from "./sync-policy"
+import { BATCH_SIZE, calculateBackoffMs, isOutboxEntryDue } from "./sync-policy"
 
 export type SyncBatch = {
   entries: OutboxEntry[]
@@ -67,58 +62,42 @@ export class LocalSyncRepository {
     })
   }
 
-  async applyResults(batch: SyncBatch, results: SyncResult[], startedAt: number) {
-    const resultById = new Map(results.map((result) => [result.transactionId, result]))
-    const transactionById = new Map(
-      batch.transactions.map((transaction) => [transaction.id, transaction]),
-    )
-    let synced = 0
+  async applyAck(batch: SyncBatch, ack: BackendSyncAck, startedAt: number) {
+    const attemptedAt = new Date(this.now()).toISOString()
     await database.transaction(
       "rw",
       [database.transactions, database.outbox, database.syncAttempts, database.settings],
       async () => {
         for (const entry of batch.entries) {
-          const transaction = transactionById.get(entry.transactionId)!
-          const result = resultById.get(entry.transactionId)
-          const transition = transitionForResult(result, entry.retryCount, this.now(), this.random)
-          if (result) {
+          const transaction = batch.transactions.find((item) => item.id === entry.transactionId)
+          if (transaction) {
             const attempt: Omit<SyncAttempt, "id"> = {
               transactionId: transaction.id,
               invoiceNumber: transaction.invoiceNumber,
-              result: result.status,
-              createdAt: new Date(this.now()).toISOString(),
+              result: "ACCEPTED",
+              createdAt: attemptedAt,
               durationMs: Math.round(this.now() - startedAt),
             }
             await database.syncAttempts.add(attempt)
           }
           await database.transactions.update(entry.transactionId, {
-            syncStatus: transition.syncStatus,
-            settlementStatus: transition.settlementStatus,
-            receivedAtBackend: transition.receivedAtBackend,
-            retryCount: transition.retryCount,
-            lastSyncError: transition.error,
+            syncStatus: "SYNCING",
+            lastSyncError: undefined,
+            receivedAtBackend: ack.queuedAt,
           })
-          if (transition.outbox === "DELETE") {
-            await database.outbox.delete(entry.id)
-            synced += 1
-          } else {
-            await database.outbox.update(entry.id, {
-              status: transition.outbox,
-              retryCount: transition.retryCount,
-              lastError: transition.error,
-              nextRetryAt: transition.nextRetryAt,
-            })
-          }
-        }
-        if (synced > 0) {
-          await database.settings.put({
-            key: "lastSyncAt",
-            value: new Date(this.now()).toISOString(),
+          await database.outbox.update(entry.id, {
+            status: "SYNCING",
+            lastAttemptAt: attemptedAt,
+            lastError: undefined,
           })
         }
+        await database.settings.put({
+          key: "lastSyncAt",
+          value: attemptedAt,
+        })
       },
     )
-    return synced
+    return batch.entries.length
   }
 
   async applyTransportFailure(batch: SyncBatch, message: string, retryable: boolean) {
@@ -126,7 +105,7 @@ export class LocalSyncRepository {
       for (const entry of batch.entries) {
         const retryCount = retryable ? entry.retryCount + 1 : entry.retryCount
         await database.transactions.update(entry.transactionId, {
-          syncStatus: "FAILED",
+          syncStatus: "SYNC_FAILED",
           retryCount,
           lastSyncError: message,
         })

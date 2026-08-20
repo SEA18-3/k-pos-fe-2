@@ -1,11 +1,15 @@
-import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { useUiStore } from "@/app/ui-store"
+import { useCurrentSession } from "@/features/auth/session-queries"
 import { syncService } from "@/features/sync/sync-runtime"
 import { voidProvisionalSale } from "@/features/transactions/transaction-actions"
+import { fetchServerTransaction } from "@/features/transactions/transaction-api"
 import { TransactionFinancialDetails } from "@/features/transactions/transaction-detail-content"
+import { TransactionHistoryTimeline } from "@/features/transactions/transaction-history-timeline"
+import { ReconciliationHistoryTimeline } from "@/features/reconciliation/reconciliation-history-timeline"
 import { TransactionDetailHeader } from "@/features/transactions/transaction-detail-header"
 import {
   TransactionLifecycle,
@@ -13,16 +17,47 @@ import {
 } from "@/features/transactions/transaction-lifecycle"
 import { useLocalTransaction } from "@/features/transactions/transaction-queries"
 import { VoidTransactionDialog } from "@/features/transactions/void-transaction-dialog"
+import { TransactionCorrectionDialog, OpenDisputeDialog } from "@/features/transactions/transaction-dialogs"
 import type { LocalTransaction } from "@/infrastructure/persistence/models"
 import { formatTransactionDate, paymentLabels } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
 
 export function TransactionDetailPage() {
   const { id } = useParams()
-  const transaction = useLocalTransaction(id)
+  const session = useCurrentSession()
+  const location = useLocation()
+  // If navigated from server-mode list, the transaction is passed in router state
+  const passedTransaction = location.state?.transaction as LocalTransaction | undefined
+  const localTransaction = useLocalTransaction(id)
+  const [serverTransaction, setServerTransaction] = useState<LocalTransaction | null>(null)
+  const [loadingServer, setLoadingServer] = useState(false)
+
+  useEffect(() => {
+    const needsFetch =
+      (!localTransaction && !passedTransaction) ||
+      (passedTransaction && passedTransaction.items.length === 0) ||
+      (localTransaction && localTransaction.items.length === 0)
+
+    if (needsFetch && id && session) {
+      setLoadingServer(true)
+      fetchServerTransaction(session, id)
+        .then((res) => setServerTransaction(res))
+        .catch(() => setServerTransaction(null))
+        .finally(() => setLoadingServer(false))
+    }
+  }, [localTransaction, passedTransaction, id, session])
+
+  const transaction =
+    serverTransaction && serverTransaction.items.length > 0
+      ? serverTransaction
+      : (passedTransaction ?? localTransaction ?? serverTransaction)
   const connection = useUiStore((state) => state.connection)
   const [voidOpen, setVoidOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
+  const [disputeOpen, setDisputeOpen] = useState(false)
 
+  if (loadingServer && !transaction) return <LoadingTransaction />
+  if (transaction === undefined && loadingServer) return <LoadingTransaction />
   if (transaction === undefined) return <LoadingTransaction />
   if (!transaction) return <MissingTransaction />
   const sale = transaction
@@ -58,9 +93,15 @@ export function TransactionDetailPage() {
         transaction={transaction}
         onVoid={() => setVoidOpen(true)}
         onRetry={() => void retry()}
+        onEdit={() => setCorrectionOpen(true)}
+        onDispute={() => setDisputeOpen(true)}
       />
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <TransactionFinancialDetails transaction={transaction} />
+        <div className="grid gap-4 content-start">
+          <TransactionFinancialDetails transaction={transaction} />
+          <TransactionHistoryTimeline transactionId={transaction.id} />
+          <ReconciliationHistoryTimeline paymentId={transaction.paymentId} />
+        </div>
         <TransactionLifecycle transaction={transaction} events={lifecycleEvents(transaction)} />
       </div>
       <VoidTransactionDialog
@@ -69,12 +110,22 @@ export function TransactionDetailPage() {
         onOpenChange={setVoidOpen}
         onConfirm={() => void voidSale()}
       />
+      <TransactionCorrectionDialog
+        open={correctionOpen}
+        transaction={transaction}
+        onOpenChange={setCorrectionOpen}
+      />
+      <OpenDisputeDialog
+        open={disputeOpen}
+        transaction={transaction}
+        onOpenChange={setDisputeOpen}
+      />
     </div>
   )
 }
 
 function lifecycleEvents(transaction: LocalTransaction): LifecycleEvent[] {
-  const settled = transaction.settlementStatus === "SETTLED"
+  const synced = transaction.syncStatus === "SYNCED"
   return [
     {
       label: "Dibuat di perangkat",
@@ -92,13 +143,13 @@ function lifecycleEvents(transaction: LocalTransaction): LifecycleEvent[] {
       description: transaction.receivedAtBackend
         ? formatTransactionDate(transaction.receivedAtBackend)
         : (transaction.lastSyncError ?? "Menunggu koneksi"),
-      done: settled,
-      failed: transaction.syncStatus === "FAILED",
+      done: synced,
+      failed: transaction.syncStatus === "SYNC_FAILED",
     },
     {
-      label: "Settled & immutable",
-      description: settled ? "Histori terkunci; koreksi membuat record baru" : "Menunggu backend",
-      done: settled,
+      label: "Synced & immutable",
+      description: synced ? "Histori terkunci; koreksi membuat record baru" : "Menunggu backend",
+      done: synced,
     },
   ]
 }

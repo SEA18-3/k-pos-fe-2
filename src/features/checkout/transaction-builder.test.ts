@@ -26,17 +26,45 @@ describe("transaction builder", () => {
     )
 
     expect(sale).toMatchObject({
-      invoiceNumber: "OPS-0000ABCD",
+      invoiceNumber: "0198a123-0000-7000-8000-00000000abcd",
       subtotal: 44_000,
       total: 44_000,
       change: 6_000,
-      syncStatus: "LOCAL_ONLY",
-      settlementStatus: "PROVISIONAL",
-      items: [{ productId: "prd-aren", unitPrice: 22_000, quantity: 2, subtotal: 44_000 }],
+      syncStatus: "PENDING_SYNC",
+      items: [
+        {
+          productId: "prd-aren",
+          name: "Kopi Susu Aren",
+          sku: "KSA-01",
+          catalogVersion: "2026-08-15T00:00:00.000Z",
+          unitPrice: 22_000,
+          quantity: 2,
+          subtotal: 44_000,
+        },
+      ],
     })
+    expect(sale.offlineUuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
   })
 
-  it("uses the random UUID tail so concurrent devices do not share invoice numbers", () => {
+  it("resolves catalogVersion hierarchy: product.updatedAt -> lastBootstrapAt -> createdAt", () => {
+    const productWithoutUpdatedAt: Product = { ...product, updatedAt: undefined }
+
+    // Case 1: Falls back to lastBootstrapAt when product.updatedAt is undefined
+    const sale1 = buildLocalTransaction(
+      { items: [{ product: productWithoutUpdatedAt, quantity: 1 }], paymentMethod: "CASH" },
+      { ...context("0198a123-0000-7000-8000-000000000001"), lastBootstrapAt: "2026-08-10T12:00:00.000Z" },
+    )
+    expect(sale1.items[0].catalogVersion).toBe("2026-08-10T12:00:00.000Z")
+
+    // Case 2: Falls back to context.createdAt when both updatedAt and lastBootstrapAt are undefined
+    const sale2 = buildLocalTransaction(
+      { items: [{ product: productWithoutUpdatedAt, quantity: 1 }], paymentMethod: "CASH" },
+      { ...context("0198a123-0000-7000-8000-000000000002"), lastBootstrapAt: undefined, createdAt: "2026-08-16T08:00:00.000Z" },
+    )
+    expect(sale2.items[0].catalogVersion).toBe("2026-08-16T08:00:00.000Z")
+  })
+
+  it("uses the UUID directly as the invoice number", () => {
     expect(invoiceNumberFor("0198a123-0000-7000-8000-00000000abcd")).not.toBe(
       invoiceNumberFor("0198a123-0000-7000-8000-00000000ef01"),
     )

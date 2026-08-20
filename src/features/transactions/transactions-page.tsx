@@ -1,27 +1,36 @@
 import { useMemo, useState } from "react"
-import { IconArrowRight, IconClock, IconCloudCheck, IconSearch } from "@tabler/icons-react"
+import { IconArrowRight, IconClock, IconCloudCheck, IconSearch, IconRefresh } from "@tabler/icons-react"
 import { Link } from "react-router-dom"
 
-import { useLocalTransactions } from "@/features/transactions/transaction-queries"
+import { useLocalTransactions, useServerTransactions } from "@/features/transactions/transaction-queries"
 import type { LocalTransaction } from "@/infrastructure/persistence/models"
 import { formatCurrency, formatTransactionDate, paymentLabels } from "@/shared/lib/format"
 import { Button } from "@/shared/ui/components/button"
 import { Card } from "@/shared/ui/components/card"
 import { Input } from "@/shared/ui/components/input"
 import { PageHeader } from "@/shared/ui/page-header"
-import { SettlementBadge, SyncBadge } from "@/shared/ui/status-badge"
+import { SyncBadge } from "@/shared/ui/status-badge"
+import { useCurrentSession } from "@/features/auth/session-queries"
 
 type Filter = "ALL" | "PENDING" | "SYNCED" | "FAILED" | "VOIDED"
 const filters: Array<{ value: Filter; label: string }> = [
   { value: "ALL", label: "Semua" },
   { value: "PENDING", label: "Pending Sync" },
-  { value: "SYNCED", label: "Settled" },
+  { value: "SYNCED", label: "Synced" },
   { value: "FAILED", label: "Gagal" },
   { value: "VOIDED", label: "Voided" },
 ]
 
 export function TransactionsPage() {
-  const transactions = useLocalTransactions()
+  const session = useCurrentSession()
+  const isOwner = session?.operator?.role === "OWNER"
+  const dataSource = isOwner ? "SERVER" : "LOCAL"
+
+  const localTransactions = useLocalTransactions()
+  const serverQuery = useServerTransactions(session ?? null, dataSource === "SERVER")
+
+  const transactions = dataSource === "SERVER" ? (serverQuery.data || []) : localTransactions
+
   const [filter, setFilter] = useState<Filter>("ALL")
   const [query, setQuery] = useState("")
   const filtered = useMemo(
@@ -35,31 +44,61 @@ export function TransactionsPage() {
       ),
     [transactions, filter, query],
   )
-  const provisional = transactions.filter((item) => item.settlementStatus === "PROVISIONAL").length
+  const provisional = transactions.filter(
+    (item) => item.syncStatus === "PENDING_SYNC" || item.syncStatus === "SYNCING",
+  ).length
+
+  const refreshAction = isOwner ? (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => serverQuery.refetch()}
+      disabled={serverQuery.isLoading}
+      className="bg-card text-foreground"
+    >
+      <IconRefresh className={`mr-2 size-4 ${serverQuery.isLoading ? "animate-spin" : ""}`} />
+      Refresh
+    </Button>
+  ) : undefined
 
   return (
     <div>
       <PageHeader
         title="Transaksi"
-        description="Semua penjualan dari perangkat ini, termasuk status sync dan settlement saat offline."
+        description="Daftar semua transaksi yang dilakukan melalui perangkat ini, baik yang sudah tersimpan maupun yang tertunda."
+        actions={refreshAction}
       />
-      <TransactionMetrics transactions={transactions} provisional={provisional} />
-      <TransactionToolbar
-        transactions={transactions}
-        filter={filter}
-        query={query}
-        onFilter={setFilter}
-        onQuery={setQuery}
-      />
-      <TransactionTable transactions={filtered} />
-      <MobileTransactionList transactions={filtered} />
-      {filtered.length === 0 && (
-        <div className="grid min-h-80 place-items-center text-center">
-          <div>
-            <p className="text-sm font-medium">Tidak ada transaksi</p>
-            <p className="mt-1 text-xs text-muted-foreground">Coba ubah filter atau pencarian.</p>
-          </div>
+
+      {dataSource === "SERVER" && serverQuery.isLoading && (
+        <div className="p-8 text-center text-muted-foreground">Mengambil transaksi dari server...</div>
+      )}
+
+      {dataSource === "SERVER" && serverQuery.error && (
+        <div className="p-8 text-center text-red-500">
+          <strong>Error:</strong> {serverQuery.error instanceof Error ? serverQuery.error.message : String(serverQuery.error)}
         </div>
+      )}
+
+      {!(dataSource === "SERVER" && serverQuery.isLoading) && (
+        <>
+          <TransactionMetrics transactions={transactions} provisional={provisional} />
+          <TransactionToolbar
+            transactions={transactions}
+            filter={filter}
+            query={query}
+            onFilter={setFilter}
+            onQuery={setQuery}
+          />
+          <TransactionTable transactions={filtered} />
+          <MobileTransactionList transactions={filtered} />
+          {filtered.length === 0 && (
+            <div className="grid min-h-80 place-items-center text-center">
+              <div>
+                <p className="text-muted-foreground">Belum ada transaksi</p>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
@@ -72,12 +111,13 @@ function TransactionMetrics({
   transactions: LocalTransaction[]
   provisional: number
 }) {
-  const total = transactions.reduce((sum, item) => sum + item.total, 0)
+  const validTransactions = transactions.filter(t => t.transactionStatus !== "VOIDED")
+  const total = validTransactions.reduce((sum, item) => sum + item.total, 0)
   return (
     <div className="grid gap-px border-b bg-border sm:grid-cols-3">
       <Metric label="Nilai transaksi" value={formatCurrency(total)} />
       <Metric
-        label="Settled"
+        label="Synced"
         value={String(transactions.length - provisional)}
         icon={<IconCloudCheck className="size-4 text-emerald-400" />}
       />
@@ -152,15 +192,26 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
               <tr key={transaction.id} className="bg-card/40 hover:bg-accent/60">
                 <td className="px-3 py-3">
                   <strong>{transaction.invoiceNumber}</strong>
+                  {transaction.backendId && (
+                    <div className="mt-0.5 text-[9px] font-mono text-muted-foreground">
+                      BE: {transaction.backendId}
+                    </div>
+                  )}
                   <div className="mt-1 text-[10px] text-muted-foreground">
-                    {transaction.items.length} jenis
+                    {transaction.items.length > 0
+                      ? `${transaction.items.length} jenis`
+                      : "Lihat rincian"}
                   </div>
                 </td>
                 <td>{formatTransactionDate(transaction.createdAt)}</td>
                 <td>{paymentLabels[transaction.paymentMethod]}</td>
                 <td>
-                  <div className="flex gap-1">
-                    <SettlementBadge status={transaction.settlementStatus} />
+                  <div className="flex gap-1 flex-wrap">
+                    {transaction.transactionStatus === "VOIDED" && (
+                      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                        Voided
+                      </span>
+                    )}
                     <SyncBadge status={transaction.syncStatus} />
                   </div>
                 </td>
@@ -168,6 +219,7 @@ function TransactionTable({ transactions }: { transactions: LocalTransaction[] }
                 <td>
                   <Link
                     to={`/transactions/${transaction.id}`}
+                    state={{ transaction }}
                     className="grid size-8 place-items-center"
                   >
                     <IconArrowRight className="size-4" />
@@ -186,11 +238,16 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
   return (
     <div className="grid gap-2 p-4 sm:hidden">
       {transactions.map((transaction) => (
-        <Link key={transaction.id} to={`/transactions/${transaction.id}`}>
+        <Link key={transaction.id} to={`/transactions/${transaction.id}`} state={{ transaction }}>
           <Card className="grid gap-3 p-3">
             <div className="flex justify-between">
               <div>
                 <div className="text-xs font-semibold">{transaction.invoiceNumber}</div>
+                {transaction.backendId && (
+                  <div className="text-[9px] font-mono text-muted-foreground">
+                    BE: {transaction.backendId}
+                  </div>
+                )}
                 <div className="mt-1 text-[10px] text-muted-foreground">
                   {formatTransactionDate(transaction.createdAt)}
                 </div>
@@ -201,8 +258,12 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
               <span className="text-[10px] text-muted-foreground">
                 {paymentLabels[transaction.paymentMethod]}
               </span>
-              <div className="flex gap-1">
-                <SettlementBadge status={transaction.settlementStatus} />
+              <div className="flex gap-1 flex-wrap">
+                {transaction.transactionStatus === "VOIDED" && (
+                  <span className="inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                    Voided
+                  </span>
+                )}
                 <SyncBadge status={transaction.syncStatus} />
               </div>
             </div>
@@ -215,9 +276,9 @@ function MobileTransactionList({ transactions }: { transactions: LocalTransactio
 
 function matchesFilter(transaction: LocalTransaction, filter: Filter) {
   if (filter === "PENDING")
-    return transaction.syncStatus === "LOCAL_ONLY" || transaction.syncStatus === "SYNCING"
+    return transaction.syncStatus === "PENDING_SYNC" || transaction.syncStatus === "SYNCING"
   if (filter === "SYNCED") return transaction.syncStatus === "SYNCED"
-  if (filter === "FAILED") return transaction.syncStatus === "FAILED"
+  if (filter === "FAILED") return transaction.syncStatus === "SYNC_FAILED"
   if (filter === "VOIDED") return transaction.transactionStatus === "VOIDED"
   return true
 }

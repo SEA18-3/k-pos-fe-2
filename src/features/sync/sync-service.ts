@@ -3,9 +3,7 @@ import type {
   DeviceIdentity,
   LocalTransaction,
 } from "@/infrastructure/persistence/models"
-import type { SyncResult } from "@operator/contracts"
-
-import { ApiError } from "@/infrastructure/api/api-client"
+import { ApiError, type BackendSyncAck } from "@/infrastructure/api/api-client"
 
 import type { LocalSyncRepository } from "./local-sync-repository"
 import { BATCH_SIZE } from "./sync-policy"
@@ -15,7 +13,7 @@ export type SyncTransport = (
   device: DeviceIdentity,
   batchId: string,
   transactions: LocalTransaction[],
-) => Promise<SyncResult[]>
+) => Promise<BackendSyncAck>
 
 type SyncDependencies = {
   repository: LocalSyncRepository
@@ -67,13 +65,13 @@ export class SyncService {
       await this.dependencies.repository.markSyncing(batch)
       const startedAt = this.dependencies.now()
       try {
-        const results = await this.dependencies.transport(
+        const ack = await this.dependencies.transport(
           session,
           device,
           this.dependencies.createBatchId(),
           batch.transactions,
         )
-        totalSynced += await this.dependencies.repository.applyResults(batch, results, startedAt)
+        totalSynced += await this.dependencies.repository.applyAck(batch, ack, startedAt)
       } catch (error) {
         const apiError = error instanceof ApiError ? error : null
         const authenticationError = apiError?.status === 401 || apiError?.status === 403

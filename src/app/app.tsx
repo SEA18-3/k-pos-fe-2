@@ -36,6 +36,9 @@ const TransactionsPage = lazy(() =>
 const LoginPage = lazy(() =>
   import("@/features/auth/login-page").then((module) => ({ default: module.LoginPage })),
 )
+const PairingPage = lazy(() =>
+  import("@/features/auth/pairing-page").then((module) => ({ default: module.PairingPage })),
+)
 const ReconciliationPage = lazy(() =>
   import("@/features/reconciliation/reconciliation-page").then((module) => ({
     default: module.ReconciliationPage,
@@ -50,6 +53,10 @@ const AdminCatalogPage = lazy(() =>
   import("@/features/admin-catalog/admin-catalog-page").then((module) => ({
     default: module.AdminCatalogPage,
   })),
+)
+
+const RegisterPage = lazy(() =>
+  import("@/features/auth/register-page").then((module) => ({ default: module.RegisterPage })),
 )
 
 function RouteFallback() {
@@ -98,9 +105,21 @@ export default function App() {
     )
   if (!session && device)
     return (
-      <Suspense fallback={<RouteFallback />}>
-        <LoginPage device={device} onAuthenticated={setSession} />
-      </Suspense>
+      <BrowserRouter>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/register" element={<RegisterPage />} />
+            {!device.registeredAt ? (
+              <>
+                <Route path="/login-admin" element={<LoginPage device={device} onAuthenticated={setSession} isAdminMode />} />
+                <Route path="*" element={<PairingPage device={device} onPaired={setDevice} />} />
+              </>
+            ) : (
+              <Route path="*" element={<LoginPage device={device} onAuthenticated={setSession} />} />
+            )}
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
     )
 
   return (
@@ -108,7 +127,19 @@ export default function App() {
       <AppShell>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<CheckoutPage />} />
+            <Route
+              path="/"
+              element={
+                session?.operator.role === "OPERATOR" ? (
+                  <CheckoutPage />
+                ) : (
+                  <Navigate
+                    to={session?.operator.role === "OWNER" ? "/admin/catalog" : "/products"}
+                    replace
+                  />
+                )
+              }
+            />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/transactions/:id" element={<TransactionDetailPage />} />
             <Route path="/products" element={<ProductsPage />} />
@@ -117,7 +148,7 @@ export default function App() {
             <Route
               path="/reconciliation"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <ReconciliationPage />
                 ) : (
                   <Navigate to="/" replace />
@@ -127,7 +158,7 @@ export default function App() {
             <Route
               path="/admin/users"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <AdminUsersPage />
                 ) : (
                   <Navigate to="/" replace />
@@ -137,7 +168,7 @@ export default function App() {
             <Route
               path="/admin/catalog"
               element={
-                session?.operator.role === "ADMIN" ? (
+                session?.operator.role === "OWNER" ? (
                   <AdminCatalogPage />
                 ) : (
                   <Navigate to="/" replace />
@@ -148,7 +179,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </AppShell>
-      <Toaster theme="dark" position="top-center" richColors closeButton />
+      <Toaster theme="light" position="top-center" richColors closeButton />
     </BrowserRouter>
   )
 }

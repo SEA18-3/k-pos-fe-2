@@ -1,12 +1,14 @@
 import { IconCoffee, IconGlass, IconShoppingBag } from "@tabler/icons-react"
 
 import { cn } from "@/shared/lib/utils"
+import { API_URL } from "@/infrastructure/api/http-client"
 
 type ProductThumbnailData = {
   sku: string
   name: string
   category: string
   accent: string
+  imageUrl?: string
 }
 
 const imageBySku: Readonly<Record<string, string>> = {
@@ -27,7 +29,10 @@ export function ProductThumbnail({
   product: ProductThumbnailData
   className?: string
 }) {
-  const image = imageBySku[product.sku]
+  let image = product.imageUrl ?? imageBySku[product.sku]
+  if (image && !image.startsWith("http") && !image.startsWith("/products/") && !image.startsWith("data:")) {
+    image = `${API_URL}${image.startsWith("/") ? "" : "/"}${image}`
+  }
   const Icon =
     product.category === "Kopi"
       ? IconCoffee

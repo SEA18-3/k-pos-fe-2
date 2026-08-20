@@ -1,6 +1,5 @@
 import {
   IconAlertCircle,
-  IconCircleCheck,
   IconClock,
   IconCloudCheck,
   IconCloudOff,
@@ -8,11 +7,7 @@ import {
   IconPointFilled,
 } from "@tabler/icons-react"
 
-import type {
-  ConnectionState,
-  SettlementStatus,
-  SyncStatus,
-} from "@/infrastructure/persistence/models"
+import type { ConnectionState, SyncStatus } from "@/infrastructure/persistence/models"
 import { Badge } from "@/shared/ui/components/badge"
 
 export function ConnectionBadge({ state }: { state: ConnectionState }) {
@@ -37,28 +32,17 @@ export function ConnectionBadge({ state }: { state: ConnectionState }) {
 
 export function SyncBadge({ status }: { status: SyncStatus }) {
   const config = {
-    LOCAL_ONLY: { label: "Pending Sync", variant: "warning" as const, icon: IconClock },
+    PENDING_SYNC: { label: "Pending Sync", variant: "warning" as const, icon: IconClock },
     SYNCING: { label: "Syncing", variant: "default" as const, icon: IconLoader2 },
     SYNCED: { label: "Synced", variant: "success" as const, icon: IconCloudCheck },
-    FAILED: { label: "Gagal", variant: "destructive" as const, icon: IconAlertCircle },
+    SYNC_FAILED: { label: "Gagal", variant: "destructive" as const, icon: IconAlertCircle },
+    SYNC_CONFLICT: { label: "Konflik", variant: "destructive" as const, icon: IconAlertCircle },
   }[status]
   const Icon = config.icon
   return (
     <Badge variant={config.variant}>
       <Icon className={status === "SYNCING" ? "animate-spin" : ""} />
       {config.label}
-    </Badge>
-  )
-}
-
-export function SettlementBadge({ status }: { status: SettlementStatus }) {
-  return status === "SETTLED" ? (
-    <Badge variant="success">
-      <IconCircleCheck /> Settled
-    </Badge>
-  ) : (
-    <Badge variant="warning">
-      <IconClock /> Provisional
     </Badge>
   )
 }

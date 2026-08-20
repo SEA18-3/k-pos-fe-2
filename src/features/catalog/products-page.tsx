@@ -41,7 +41,7 @@ export function ProductsPage() {
     <div>
       <PageHeader
         title="Produk & stok lokal"
-        description="Katalog ini tersimpan di perangkat dan tetap dapat dibaca tanpa jaringan. Stok adalah proyeksi eventual, bukan reservasi real-time."
+        description="Daftar produk beserta stoknya. Data ini disimpan di perangkat agar Anda tetap bisa berjualan walau internet mati."
         actions={
           <Button variant="outline" disabled={refreshing} onClick={() => void refresh()}>
             {refreshing ? "Menarik katalog…" : "Tarik katalog terbaru"}
@@ -115,14 +115,6 @@ export function ProductsPage() {
             </div>
           </Card>
         ))}
-      </div>
-      <div className="mx-4 mb-6 flex items-start gap-2 rounded-lg border border-dashed p-3 text-[10px] leading-4 text-muted-foreground sm:mx-6">
-        <IconBox className="mt-0.5 size-4 shrink-0 text-primary" />
-        <span>
-          <strong className="text-foreground">Kenapa tidak diblokir saat stok nol?</strong> Beberapa
-          kasir dapat menjual offline bersamaan. Penjualan historis tetap diterima; proyeksi negatif
-          ditandai sebagai discrepancy untuk rekonsiliasi admin.
-        </span>
       </div>
     </div>
   )
