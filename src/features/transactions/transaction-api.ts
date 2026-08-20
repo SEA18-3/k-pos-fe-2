@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { invoiceNumberFor } from "@/features/checkout/transaction-builder"
 import { requestJson } from "@/infrastructure/api/http-client"
 import type { AuthSession, LocalTransaction } from "@/infrastructure/persistence/models"
 
@@ -27,7 +28,7 @@ const transactionSchema = z.object({
     quantity: z.number(),
     unit_price: decimal,
     subtotal: decimal,
-    product_name: z.string(),
+    product_name: z.string().optional(),
   })).optional(),
   correctionsAsNew: z.array(z.object({
     oldTransaction: z.object({
@@ -66,7 +67,7 @@ export function mapServerTransaction(tx: any, session: AuthSession): LocalTransa
 
   return {
     id: tx.id_transaction,
-    invoiceNumber: tx.id_transaction,
+    invoiceNumber: invoiceNumberFor(tx.offline_uuid || tx.id_transaction),
     merchantId: session.merchantId,
     deviceId: tx.id_device || "server",
     operatorId: tx.id_user || "server",

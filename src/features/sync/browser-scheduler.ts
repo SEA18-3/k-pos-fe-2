@@ -56,11 +56,9 @@ export function createBrowserSyncScheduler(dependencies: SchedulerDependencies) 
     const handleOffline = () => dependencies.setConnection("OFFLINE")
     window.addEventListener("online", schedule)
     window.addEventListener("offline", handleOffline)
-    const interval = window.setInterval(() => void syncIfReachable(), 15_000)
     schedule()
     return () => {
       stopped = true
-      window.clearInterval(interval)
       reconnectTimers.forEach((timer) => window.clearTimeout(timer))
       window.removeEventListener("online", schedule)
       window.removeEventListener("offline", handleOffline)

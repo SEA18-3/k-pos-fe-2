@@ -82,7 +82,7 @@ export function CheckoutPage() {
             ? "Dikirim ke server di background."
             : "Akan sync otomatis saat koneksi kembali.",
       })
-      if (connection === "ONLINE") void syncService.run()
+      void syncService.run()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Transaksi gagal disimpan")
     }

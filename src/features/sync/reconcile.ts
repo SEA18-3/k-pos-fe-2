@@ -1,4 +1,4 @@
-import type { AuthSession, DeviceIdentity, SyncStatus } from "@/infrastructure/persistence/models"
+import type { AuthSession, DeviceIdentity, LocalTransaction, SyncStatus } from "@/infrastructure/persistence/models"
 
 import { database } from "@/infrastructure/persistence/database"
 
