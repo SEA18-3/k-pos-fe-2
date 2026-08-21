@@ -30,6 +30,7 @@ export function TransactionDetailPage() {
   const passedTransaction = location.state?.transaction as LocalTransaction | undefined
   const localTransaction = useLocalTransaction(id)
   const [serverTransaction, setServerTransaction] = useState<LocalTransaction | null>(null)
+  const [serverError, setServerError] = useState<string | null>(null)
   const [loadingServer, setLoadingServer] = useState(false)
 
   useEffect(() => {
@@ -40,9 +41,13 @@ export function TransactionDetailPage() {
 
     if (needsFetch && id && session) {
       setLoadingServer(true)
+      setServerError(null)
       fetchServerTransaction(session, id)
         .then((res) => setServerTransaction(res))
-        .catch(() => setServerTransaction(null))
+        .catch((err: any) => {
+          setServerTransaction(null)
+          setServerError(err?.status === 403 ? "Akses ditolak. Anda tidak memiliki izin untuk melihat transaksi ini dari server." : "Transaksi tidak ditemukan di server.")
+        })
         .finally(() => setLoadingServer(false))
     }
   }, [localTransaction, passedTransaction, id, session])
@@ -59,7 +64,7 @@ export function TransactionDetailPage() {
   if (loadingServer && !transaction) return <LoadingTransaction />
   if (transaction === undefined && loadingServer) return <LoadingTransaction />
   if (transaction === undefined) return <LoadingTransaction />
-  if (!transaction) return <MissingTransaction />
+  if (!transaction) return <MissingTransaction error={serverError} />
   const sale = transaction
 
   async function retry() {
@@ -162,11 +167,11 @@ function LoadingTransaction() {
   )
 }
 
-function MissingTransaction() {
+function MissingTransaction({ error }: { error?: string | null }) {
   return (
     <div className="grid min-h-96 place-items-center text-center">
       <div>
-        <p className="text-sm font-medium">Transaksi tidak ditemukan</p>
+        <p className="text-sm font-medium">{error || "Transaksi tidak ditemukan"}</p>
         <Link to="/transactions">
           <Button variant="link">Kembali ke transaksi</Button>
         </Link>

@@ -12,6 +12,9 @@ export function TransactionHistoryTimeline({ transactionId }: { transactionId: s
   if (isLoading) return <div className="text-xs text-muted-foreground p-4 animate-pulse">Memuat riwayat koreksi...</div>
   
   if (error) {
+    const status = (error as any)?.status
+    if (status === 404) return null // Transaksi belum ada di server
+    if (status === 403) return null // Akses ditolak untuk role ini, abaikan saja
     return <div className="text-xs text-destructive p-4">Error memuat riwayat: {error.message}</div>
   }
 
