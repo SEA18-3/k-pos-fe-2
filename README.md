@@ -1,4 +1,4 @@
-# 🛍️ K-POS Operator (PWA)
+# 🛍️ K-POS
 
 > **Offline-First Point of Sale Application**  
 > *Local by default, exactly-once synchronization when it counts.*
