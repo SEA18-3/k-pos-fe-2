@@ -56,7 +56,12 @@ function LoginForm({
     setError("")
     try {
       const session = await activateAndLogin({ email, password, device })
-      await bootstrapLocalData(session, device)
+      try {
+        await bootstrapLocalData(session, device)
+      } catch (bootstrapErr) {
+        // Saat offline, bootstrap katalog remote dilewati karena katalog lokal sudah ada di IndexedDB
+        console.warn("Bootstrap remote data dilewati (mode offline):", bootstrapErr)
+      }
       onAuthenticated(session)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Aktivasi gagal")

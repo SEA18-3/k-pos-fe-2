@@ -19,7 +19,11 @@ import { fetchCatalogProducts } from "@/features/catalog/catalog-api"
 import { replaceCatalog } from "@/infrastructure/persistence/catalog-repository"
 import { saveDeviceIdentity } from "@/infrastructure/persistence/device-repository"
 import type { AuthSession, DeviceIdentity, Product } from "@/infrastructure/persistence/models"
-import { saveAuthSession } from "@/infrastructure/persistence/session-repository"
+import {
+  saveAuthSession,
+  saveCachedCredential,
+  verifyAndRestoreCachedSession,
+} from "@/infrastructure/persistence/session-repository"
 import { writeSetting } from "@/infrastructure/persistence/settings-repository"
 
 // Schema untuk response logout
@@ -107,62 +111,87 @@ export async function activateAndLogin(input: {
   password: string
   device: DeviceIdentity
 }): Promise<AuthSession> {
-  // Login ke backend menggunakan email + password
-  const result = await requestJson("/api/v1/auth/login", loginResponseSchema, {
-    method: "POST",
-    body: JSON.stringify({
-      email: input.email,
-      password: input.password,
-    }),
-  })
-
-  const user = result.data.user
-  const accessToken = result.data.access_token
-  const session: AuthSession = {
-    token: accessToken,
-    refreshToken: result.data.refresh_token ?? "",
-    // id_merchant bisa null jika user belum memiliki merchant
-    merchantId: user.id_merchant ?? "",
-    operator: {
-      id: user.id_user,
-      name: user.full_name,
-      role: user.role as AuthSession["operator"]["role"],
-    },
-    expiresAt: parseJwtExpiry(accessToken),
-  }
-
-  // Coba ambil device dari backend atau daftarkan jika belum ada
   try {
-    const devicesRes = await requestJson(
-      "/api/v1/devices",
-      z.any(),
-      { method: "GET" },
-      session.token,
-    )
-    if (devicesRes?.data && Array.isArray(devicesRes.data) && devicesRes.data.length > 0) {
-      input.device.id = devicesRes.data[0].id_device
-    } else if (user.role === "OWNER") {
-      const createRes = await requestJson(
+    // 1. Coba login ke backend menggunakan email + password
+    const result = await requestJson("/api/v1/auth/login", loginResponseSchema, {
+      method: "POST",
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password,
+      }),
+    })
+
+    const user = result.data.user
+    const accessToken = result.data.access_token
+    const session: AuthSession = {
+      token: accessToken,
+      refreshToken: result.data.refresh_token ?? "",
+      // id_merchant bisa null jika user belum memiliki merchant
+      merchantId: user.id_merchant ?? "",
+      operator: {
+        id: user.id_user,
+        name: user.full_name,
+        role: user.role as AuthSession["operator"]["role"],
+      },
+      expiresAt: parseJwtExpiry(accessToken),
+    }
+
+    // Coba ambil device dari backend atau daftarkan jika belum ada
+    try {
+      const devicesRes = await requestJson(
         "/api/v1/devices",
         z.any(),
-        {
-          method: "POST",
-          body: JSON.stringify({ name: input.device.name }),
-        },
+        { method: "GET" },
         session.token,
       )
-      if (createRes?.data?.id_device) {
-        input.device.id = createRes.data.id_device
+      if (devicesRes?.data && Array.isArray(devicesRes.data) && devicesRes.data.length > 0) {
+        input.device.id = devicesRes.data[0].id_device
+      } else if (user.role === "OWNER") {
+        const createRes = await requestJson(
+          "/api/v1/devices",
+          z.any(),
+          {
+            method: "POST",
+            body: JSON.stringify({ name: input.device.name }),
+          },
+          session.token,
+        )
+        if (createRes?.data?.id_device) {
+          input.device.id = createRes.data.id_device
+        }
       }
+    } catch (err) {
+      console.error("Failed to auto-register device with backend", err)
     }
-  } catch (err) {
-    console.error("Failed to auto-register device with backend", err)
+
+    await saveAuthSession(session)
+    await saveCachedCredential(input.email, input.password, session)
+
+    return session
+  } catch (error) {
+    // 2. Fallback offline: jika offline / network unreachable, coba verifikasi credential cache lokal
+    const isNetworkError =
+      (typeof navigator !== "undefined" && !navigator.onLine) ||
+      error instanceof TypeError ||
+      (error instanceof Error &&
+        (error.message.includes("fetch") ||
+          error.message.includes("Network") ||
+          error.message.includes("Failed to fetch") ||
+          error.message.includes("ECONNREFUSED") ||
+          error.message.includes("network")))
+
+    if (isNetworkError) {
+      const offlineSession = await verifyAndRestoreCachedSession(input.email, input.password)
+      if (offlineSession) {
+        return offlineSession
+      }
+      throw new Error(
+        "Gagal login offline. Email atau kata sandi tidak cocok, atau akun ini belum pernah login di perangkat ini saat online.",
+      )
+    }
+
+    throw error
   }
-
-  await saveAuthSession(session)
-  // We no longer automatically save a registeredAt date here, the PairingPage handles device saving.
-
-  return session
 }
 
 /**
