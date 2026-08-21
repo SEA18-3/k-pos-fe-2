@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         merchantName={merchant?.name}
         merchantId={merchant?.id}
         operatorName={session?.operator.name}
-        admin={session?.operator.role === "OWNER"}
+        role={session?.operator.role}
         pendingCount={pendingCount}
       />
 
@@ -116,7 +116,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <img src="/brand/k-pos-icon.png" alt="" className="size-8 rounded-md object-cover" />
             <div>
               <div className="text-xs font-semibold">{merchant?.name ?? "Merchant"}</div>
-              <div className="text-[9px] text-muted-foreground">K-POS Operator</div>
+              <div className="text-[9px] text-muted-foreground">
+                {session?.operator.role === "OWNER" 
+                  ? "Administrator" 
+                  : session?.operator.role === "ENTRY"
+                    ? "Entry"
+                    : "Kasir"}
+              </div>
             </div>
           </div>
           <div className="hidden min-w-0 items-center gap-2 lg:flex">
@@ -219,9 +225,17 @@ function DesktopSidebar(props: {
   merchantName?: string
   merchantId?: string
   operatorName?: string
-  admin: boolean
+  role?: "OWNER" | "OPERATOR" | "ENTRY"
   pendingCount: number
 }) {
+  const initials = props.operatorName
+    ? props.operatorName.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
+    : "OP"
+    
+  let roleText = "Kasir"
+  if (props.role === "OWNER") roleText = "Administrator"
+  else if (props.role === "ENTRY") roleText = "Entry"
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[212px] flex-col border-r bg-background/92 backdrop-blur-xl lg:flex">
       <div className="flex h-[62px] items-center gap-2.5 border-b px-4">
@@ -280,12 +294,12 @@ function DesktopSidebar(props: {
         </NavLink>
         <div className="mt-2 flex items-center gap-2 rounded-md border bg-card/70 p-2">
           <div className="grid size-7 place-items-center rounded-full bg-zinc-700 text-[10px] font-semibold">
-            OP
+            {initials}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-medium">{props.operatorName ?? "Operator"}</div>
             <div className="text-[10px] text-muted-foreground">
-              {props.admin ? "Administrator" : "Kasir"}
+              {roleText}
             </div>
           </div>
           <span className="size-1.5 rounded-full bg-emerald-400" />
