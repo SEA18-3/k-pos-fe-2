@@ -132,11 +132,10 @@ export default function App() {
               element={
                 session?.operator.role === "OPERATOR" ? (
                   <CheckoutPage />
+                ) : session?.operator.role === "OWNER" || session?.operator.role === "ENTRY" ? (
+                  <Navigate to="/admin/catalog" replace />
                 ) : (
-                  <Navigate
-                    to={session?.operator.role === "OWNER" ? "/admin/catalog" : "/products"}
-                    replace
-                  />
+                  <Navigate to="/products" replace />
                 )
               }
             />
@@ -168,7 +167,7 @@ export default function App() {
             <Route
               path="/admin/catalog"
               element={
-                session?.operator.role === "OWNER" ? (
+                session?.operator.role === "OWNER" || session?.operator.role === "ENTRY" ? (
                   <AdminCatalogPage />
                 ) : (
                   <Navigate to="/" replace />

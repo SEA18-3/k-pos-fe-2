@@ -29,14 +29,21 @@ import { refreshConnectivity, syncService } from "@/features/sync/sync-runtime"
 import { cn } from "@/shared/lib/utils"
 import { useUiStore } from "@/app/ui-store"
 
-const navItems = [
-  { label: "Kasir", href: "/", icon: IconLayoutDashboard },
-  { label: "Transaksi", href: "/transactions", icon: IconReceipt2 },
-  { label: "Produk", href: "/products", icon: IconPackage },
-  { label: "Sync & Data", href: "/sync", icon: IconArrowsExchange },
-  { label: "Reconciliation", href: "/reconciliation", icon: IconScale, adminOnly: true },
-  { label: "Akun & Device", href: "/admin/users", icon: IconUsers, adminOnly: true },
-  { label: "Kelola Katalog", href: "/admin/catalog", icon: IconTags, adminOnly: true },
+type NavItem = {
+  label: string
+  href: string
+  icon: typeof IconLayoutDashboard
+  roles?: Array<"OWNER" | "OPERATOR" | "ENTRY">
+}
+
+const navItems: NavItem[] = [
+  { label: "Kasir", href: "/", icon: IconLayoutDashboard, roles: ["OPERATOR"] },
+  { label: "Kelola Katalog", href: "/admin/catalog", icon: IconTags, roles: ["OWNER", "ENTRY"] },
+  { label: "Transaksi", href: "/transactions", icon: IconReceipt2, roles: ["OPERATOR", "OWNER", "ENTRY"] },
+  { label: "Produk", href: "/products", icon: IconPackage, roles: ["OPERATOR", "OWNER", "ENTRY"] },
+  { label: "Sync & Data", href: "/sync", icon: IconArrowsExchange, roles: ["OPERATOR", "OWNER", "ENTRY"] },
+  { label: "Reconciliation", href: "/reconciliation", icon: IconScale, roles: ["OWNER"] },
+  { label: "Akun & Device", href: "/admin/users", icon: IconUsers, roles: ["OWNER"] },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -48,8 +55,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const session = useCurrentSession()
   const merchant = useMerchantProfile()
   const visibleNavItems = navItems.filter((item) => {
-    if (item.adminOnly && session?.operator.role !== "OWNER") return false
-    if (item.label === "Kasir" && session?.operator.role !== "OPERATOR") return false
+    const role = session?.operator.role
+    if (item.roles && (!role || !item.roles.includes(role))) return false
     return true
   })
 
