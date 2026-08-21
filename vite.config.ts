@@ -44,7 +44,7 @@ export default defineConfig({
         icons: [
           {
             src: "/brand/k-pos-icon.png",
-            sizes: "1254x1254",
+            sizes: "192x192 512x512",
             type: "image/png",
             purpose: "any maskable",
           },
